@@ -1150,6 +1150,7 @@ export interface GameSettings {
   crtOverlay: boolean;
   touchControls: boolean;
   characterHue: number;
+  language?: 'EN' | 'MY';
   compassEnabled?: boolean;
   minimapEnabled?: boolean;
   ghostEnabled?: boolean;

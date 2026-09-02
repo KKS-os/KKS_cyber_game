@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   crtOverlay: true,
   touchControls: true,
   characterHue: 0,
+  language: 'MY',
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -599,6 +600,7 @@ export default function App() {
           onToggleMusic={() => handleUpdateSettings({ musicEnabled: !settings.musicEnabled })}
           onTogglePause={handleResumeGame}
           onOpenGuide={handleOpenCombatGuide}
+          onToggleLanguage={() => handleUpdateSettings({ language: (settings.language === 'MY' ? 'EN' : 'MY') })}
         />
       )}
 
@@ -638,6 +640,7 @@ export default function App() {
           chipsCollected={engineRef.current?.chipsCollectedInRun || 0}
           maxCombo={engineRef.current?.maxComboInRun || 0}
           stats={stats}
+          settings={settings}
           onRestart={handleRestartGame}
         />
       )}
@@ -668,6 +671,8 @@ export default function App() {
           onResume={handleResumeGame}
           onOpenSettings={() => setShowSettingsModal(true)}
           onQuit={handleQuitToMenu}
+          settings={settings}
+          onUpdateSettings={handleUpdateSettings}
         />
       )}
 
@@ -684,6 +689,8 @@ export default function App() {
       <CombatGuideMenu
         isOpen={showCombatGuideModal}
         onClose={handleCloseCombatGuide}
+        currentLanguage={settings.language || 'MY'}
+        onLanguageChange={(lang) => handleUpdateSettings({ language: lang })}
       />
     </main>
   );

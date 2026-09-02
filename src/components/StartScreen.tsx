@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen } from 'lucide-react';
+import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen, Globe } from 'lucide-react';
 import { GameSettings, GameStats } from '../types';
 import { assetUrls } from '../assetLoader';
 import { CombatGuideMenu } from './CombatGuideMenu';
 import { DailyMissionCard } from './DailyMissionCard';
 import { dailyMissionManager } from '../dailyMissionSystem';
+import { Language, getTranslation } from '../localization';
 
 interface StartScreenProps {
   onStart: () => void;
@@ -20,6 +21,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onUpdateSettings,
 }) => {
   const [showCombatGuide, setShowCombatGuide] = useState<boolean>(false);
+  const currentLang: Language = settings.language || 'MY';
+  const t = getTranslation(currentLang);
 
   const handleStartTrigger = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
@@ -29,6 +32,12 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   const handleOpenGuide = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     setShowCombatGuide(true);
+  };
+
+  const handleToggleLanguage = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    const nextLang: Language = currentLang === 'MY' ? 'EN' : 'MY';
+    onUpdateSettings({ language: nextLang });
   };
 
   return (
@@ -60,20 +69,35 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-[#FF00E5] pointer-events-none" />
           <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-[#00FFD1] pointer-events-none" />
 
-          {/* Tactical Status Pill */}
-          <div className="flex items-center gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 bg-black/60 border border-cyan-500/30 rounded-full mb-1.5 sm:mb-3 pointer-events-none">
-            <Radio size={11} className="text-[#00FFD1] animate-pulse" />
-            <span className="text-[8px] sm:text-[10px] tracking-[0.2em] text-[#00FFD1] font-bold uppercase">
-              NEURAL DIRECT LINK // SECTOR 01
-            </span>
+          {/* Top Row: Tactical Status Pill & Language Quick Switcher */}
+          <div className="flex items-center justify-between w-full max-w-xl mb-1.5 sm:mb-2">
+            <div className="flex items-center gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 bg-black/60 border border-cyan-500/30 rounded-full pointer-events-none">
+              <Radio size={11} className="text-[#00FFD1] animate-pulse" />
+              <span className="text-[8px] sm:text-[10px] tracking-[0.2em] text-[#00FFD1] font-bold uppercase">
+                {t.neuralDirectLink}
+              </span>
+            </div>
+
+            {/* Language Switcher Pill */}
+            <button
+              id="start-language-toggle"
+              type="button"
+              onClick={handleToggleLanguage}
+              onTouchEnd={handleToggleLanguage}
+              className="px-2.5 py-1 bg-cyan-950/80 border border-[#00FFD1] text-[#00FFD1] hover:bg-[#00FFD1] hover:text-black transition-all rounded text-[11px] font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,255,209,0.3)] cursor-pointer touch-manipulation"
+              title="Switch Language (မြန်မာ / English)"
+            >
+              <Globe size={12} />
+              <span>{currentLang === 'MY' ? '🇲🇲 မြန်မာ' : '🇬🇧 ENGLISH'}</span>
+            </button>
           </div>
 
           {/* Title */}
           <h1 className="text-xl xs:text-2xl sm:text-4xl md:text-5xl font-black tracking-tight uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-[#00FFD1] via-white to-[#FF00E5] mb-0.5 sm:mb-1 drop-shadow-[0_0_30px_rgba(0,255,209,0.5)] pointer-events-none">
-            NEON CYBER RUNNER
+            {t.appName}
           </h1>
           <div className="text-cyan-400 text-[8.5px] sm:text-xs tracking-[0.25em] uppercase mb-2 sm:mb-3 opacity-90 font-semibold pointer-events-none flex items-center gap-2">
-            <span>HIGH-FIDELITY CYBERNETIC COMBAT ENGINE</span>
+            <span>{t.highFidelityEngine}</span>
           </div>
 
           {/* Tactical Combat Dossier Grid (Operative vs Bio-Hazard vs Objective) */}
@@ -84,11 +108,11 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Shield size={18} className="text-[#00FFD1]" />
               </div>
               <div className="text-left overflow-hidden">
-                <div className="text-[8px] sm:text-[9px] text-cyan-400/80 tracking-widest uppercase font-bold">CYBER OPERATIVE</div>
-                <div className="text-xs text-white font-black truncate">CYBORG NINJA</div>
+                <div className="text-[8px] sm:text-[9px] text-cyan-400/80 tracking-widest uppercase font-bold">{t.cyberOperative}</div>
+                <div className="text-xs text-white font-black truncate">{t.cyborgNinja}</div>
                 <div className="text-[8px] sm:text-[9px] text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  PLASMA KATANA READY
+                  {t.plasmaKatanaReady}
                 </div>
               </div>
             </div>
@@ -99,11 +123,11 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Activity size={18} className="text-rose-400 animate-pulse" />
               </div>
               <div className="text-left overflow-hidden">
-                <div className="text-[8px] sm:text-[9px] text-rose-400/80 tracking-widest uppercase font-bold">BIO-HAZARD THREAT</div>
-                <div className="text-xs text-white font-black truncate">MUTANT SWARM</div>
+                <div className="text-[8px] sm:text-[9px] text-rose-400/80 tracking-widest uppercase font-bold">{t.biohazardThreat}</div>
+                <div className="text-xs text-white font-black truncate">{t.mutantSwarm}</div>
                 <div className="text-[8px] sm:text-[9px] text-rose-400 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  ADAPTIVE AI DIRECT
+                  {t.adaptiveAIDirector}
                 </div>
               </div>
             </div>
@@ -114,11 +138,11 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Zap size={18} className="text-purple-300 animate-spin-slow" />
               </div>
               <div className="text-left overflow-hidden">
-                <div className="text-[8px] sm:text-[9px] text-purple-400/80 tracking-widest uppercase font-bold">SECTOR OBJECTIVE</div>
-                <div className="text-xs text-white font-black truncate">QUANTUM EXTRACTION</div>
+                <div className="text-[8px] sm:text-[9px] text-purple-400/80 tracking-widest uppercase font-bold">{t.sectorObjective}</div>
+                <div className="text-xs text-white font-black truncate">{t.quantumExtraction}</div>
                 <div className="text-[8px] sm:text-[9px] text-purple-300 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                  RETRIEVE 3 BIO-CORES
+                  {t.retrieveBioCores}
                 </div>
               </div>
             </div>
@@ -128,14 +152,14 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           {stats.highScore > 0 && (
             <div className="flex items-center justify-around w-full max-w-xl bg-black/50 border border-cyan-500/20 px-3 py-1.5 mb-2.5 rounded pointer-events-none">
               <div className="flex flex-col items-center">
-                <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-[#FF00E5] font-bold">HIGH SCORE</span>
+                <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-[#FF00E5] font-bold">{t.highScore}</span>
                 <span className="text-base sm:text-lg font-black text-[#FF00E5]">
                   {stats.highScore.toString().padStart(7, '0')}
                 </span>
               </div>
               <div className="w-[1px] h-5 bg-cyan-500/20" />
               <div className="flex flex-col items-center">
-                <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-emerald-400 font-bold">PEAK STREAK</span>
+                <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-emerald-400 font-bold">{t.peakStreak}</span>
                 <span className="text-base sm:text-lg font-black text-emerald-400">
                   {stats.bestCombo > 0 ? `${stats.bestCombo}x COMBO` : '1x COMBO'}
                 </span>
@@ -161,7 +185,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               className="flex-1 py-3 sm:py-3.5 bg-gradient-to-r from-[#00FFD1] to-[#00d0a7] hover:brightness-110 active:scale-[0.98] text-black font-black text-sm sm:text-base tracking-[0.2em] uppercase transition-all duration-150 shadow-[0_0_30px_rgba(0,255,209,0.45)] rounded cursor-pointer flex items-center justify-center gap-2.5 touch-manipulation"
             >
               <Play size={18} className="fill-current" />
-              <span>INITIALIZE DEPLOYMENT</span>
+              <span>{t.initializeDeployment}</span>
             </button>
 
             {/* How to Play Combat Guide Button */}
@@ -173,7 +197,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               className="px-4 py-3 sm:py-3.5 bg-purple-950/40 hover:bg-purple-900/60 active:scale-[0.98] border border-[#FF00E5]/70 hover:border-[#FF00E5] text-[#FF00E5] hover:text-white font-bold text-xs sm:text-sm tracking-wider uppercase transition-all duration-150 shadow-[0_0_20px_rgba(255,0,229,0.3)] rounded cursor-pointer flex items-center justify-center gap-2 touch-manipulation"
             >
               <BookOpen size={16} />
-              <span>HOW TO PLAY</span>
+              <span>{t.howToPlay}</span>
             </button>
           </div>
 
@@ -184,8 +208,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Compass size={13} />
               </div>
               <div className="overflow-hidden">
-                <div className="font-bold text-[#00FFD1] uppercase truncate">W / A / S / D</div>
-                <div className="text-cyan-400/60 text-[8px] sm:text-[9px] truncate">360° Move</div>
+                <div className="font-bold text-[#00FFD1] uppercase truncate">{t.controlsMove}</div>
+                <div className="text-cyan-400/60 text-[8px] sm:text-[9px] truncate">{t.controlsMoveSub}</div>
               </div>
             </div>
 
@@ -194,8 +218,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Crosshair size={13} />
               </div>
               <div className="overflow-hidden">
-                <div className="font-bold text-[#FF00E5] uppercase truncate">CLICK / J / K</div>
-                <div className="text-rose-400/60 text-[8px] sm:text-[9px] truncate">Blade & Gun</div>
+                <div className="font-bold text-[#FF00E5] uppercase truncate">{t.controlsCombat}</div>
+                <div className="text-rose-400/60 text-[8px] sm:text-[9px] truncate">{t.controlsCombatSub}</div>
               </div>
             </div>
 
@@ -204,8 +228,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 <Zap size={13} />
               </div>
               <div className="overflow-hidden">
-                <div className="font-bold text-purple-400 uppercase truncate">SPACE / SHIFT</div>
-                <div className="text-purple-400/60 text-[8px] sm:text-[9px] truncate">Phase Dash</div>
+                <div className="font-bold text-purple-400 uppercase truncate">{t.controlsDash}</div>
+                <div className="text-purple-400/60 text-[8px] sm:text-[9px] truncate">{t.controlsDashSub}</div>
               </div>
             </div>
           </div>
@@ -230,7 +254,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               }`}
             >
               {settings.soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-              <span>SFX: {settings.soundEnabled ? 'ACTIVE' : 'MUTED'}</span>
+              <span>{t.soundSFX}: {settings.soundEnabled ? t.active : t.muted}</span>
             </button>
 
             <button
@@ -251,15 +275,19 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               }`}
             >
               <Music size={13} />
-              <span>SYNTH BGM: {settings.musicEnabled ? 'ACTIVE' : 'MUTED'}</span>
+              <span>{t.synthBGM}: {settings.musicEnabled ? t.active : t.muted}</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Combat Guide Modal Popup */}
-      <CombatGuideMenu isOpen={showCombatGuide} onClose={() => setShowCombatGuide(false)} />
+      <CombatGuideMenu
+        isOpen={showCombatGuide}
+        onClose={() => setShowCombatGuide(false)}
+        currentLanguage={currentLang}
+        onLanguageChange={(lang) => onUpdateSettings({ language: lang })}
+      />
     </>
   );
 };
-

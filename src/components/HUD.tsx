@@ -19,6 +19,7 @@ import {
   Layers,
   Sparkles,
   HelpCircle,
+  Globe,
 } from 'lucide-react';
 import {
   GameSettings,
@@ -31,6 +32,7 @@ import {
 } from '../types';
 import { RadarMinimap } from './RadarMinimap';
 import { DailyMissionHUD } from './DailyMissionHUD';
+import { Language, getTranslation } from '../localization';
 
 interface HUDProps {
   score: number;
@@ -55,6 +57,7 @@ interface HUDProps {
   onToggleMusic: () => void;
   onTogglePause: () => void;
   onOpenGuide: () => void;
+  onToggleLanguage?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -80,7 +83,11 @@ export const HUD: React.FC<HUDProps> = ({
   onToggleMusic,
   onTogglePause,
   onOpenGuide,
+  onToggleLanguage,
 }) => {
+  const currentLang: Language = settings.language || 'MY';
+  const t = getTranslation(currentLang);
+
   // Format score with leading zeros for retro arcade telemetry (e.g., 0042850)
   const formattedScore = score.toString().padStart(7, '0');
 
@@ -99,139 +106,109 @@ export const HUD: React.FC<HUDProps> = ({
   const arrowAngleDeg = nearest ? Math.round((nearest.angle * 180) / Math.PI) + 90 : 0;
   const nearestDistMeters = nearest ? Math.round(nearest.distance / 10) : 0;
 
-  const isRhythmNear = rhythmBeatState?.isNearBeat ?? false;
-  const bpm = rhythmBeatState?.bpm ?? 128;
-  const beatStreak = rhythmBeatState?.streak ?? 0;
-
-  const isDeltaAhead = speedrunDelta?.status === 'AHEAD';
-  const deltaColor = isDeltaAhead ? '#00FF66' : speedrunDelta?.status === 'BEHIND' ? '#FF0055' : '#00FFD1';
-
   return (
     <header
       id="game-hud"
-      style={{
-        paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0px))',
-        paddingLeft: 'max(0.5rem, env(safe-area-inset-left, 0px))',
-        paddingRight: 'max(0.5rem, env(safe-area-inset-right, 0px))',
-      }}
-      className="absolute inset-x-0 top-0 flex flex-col pointer-events-none z-20 select-none"
+      aria-label="Tactical Game Overlay"
+      className="fixed inset-x-0 top-0 pointer-events-none z-30 select-none font-mono-tech"
     >
-      {/* Cyber Visor Corner Holographic Telemetry Brackets */}
-      <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-[#00FFD1]/60 pointer-events-none"></div>
-      <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-[#00FFD1]/60 pointer-events-none"></div>
+      {/* Top Banner Grid */}
+      <div className="flex items-center justify-between px-2 sm:px-4 md:px-8 py-1.5 sm:py-2 bg-gradient-to-b from-[#020108]/95 via-[#020108]/85 to-transparent border-b border-[#00FFD1]/20">
+        
+        {/* Left Section: Health / Integrity Bar */}
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1 text-[7.5px] sm:text-[9px] uppercase tracking-wider text-[#00FFD1] font-bold">
+              <Activity size={10} className="text-[#00FFD1]" />
+              <span>{t.integrity}</span>
+              <span className="font-mono text-white text-[9px] sm:text-[10px] ml-1">
+                {Math.max(0, Math.round(integrity))}%
+              </span>
+            </div>
 
-      {/* Top HUD Bar */}
-      <div className="flex justify-between items-center px-2 sm:px-6 md:px-10 py-1 sm:py-1.5 border-b border-[#00FFD1]/20 bg-[#0A0A0A]/85 backdrop-blur-md min-h-[46px] sm:min-h-[50px]">
-        {/* Left: Glowing Green SYSTEM INTEGRITY Health/Energy Bar */}
-        <div className="flex flex-col items-start gap-0.5 sm:gap-1">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Activity size={12} className="animate-pulse" style={{ color: integrityColor }} />
-            <span
-              className="text-[8px] sm:text-xs font-mono-tech font-black tracking-widest uppercase drop-shadow-[0_0_8px_#00FF66]"
-              style={{ color: integrityColor }}
-            >
-              INTEGRITY
-            </span>
-            <span className="text-[8px] sm:text-xs font-mono-tech font-bold" style={{ color: integrityColor }}>
-              {integrity}%
-            </span>
+            {/* Segmented HP Gauge */}
+            <div className="w-20 xs:w-24 sm:w-36 md:w-44 h-2 sm:h-2.5 bg-[#050505] border border-[#00FFD1]/40 p-0.5 relative overflow-hidden">
+              <div
+                className="h-full transition-all duration-200"
+                style={{
+                  width: `${Math.max(0, Math.min(100, integrity))}%`,
+                  backgroundColor: integrityColor,
+                  boxShadow: `0 0 10px ${integrityColor}`,
+                }}
+              />
+            </div>
           </div>
 
-          {/* Health Bar Container */}
-          <div className="w-20 xs:w-28 sm:w-40 md:w-52 h-1.5 sm:h-2 bg-[#111111] border border-[#00FF66]/40 p-0.5 relative overflow-hidden shadow-[0_0_10px_rgba(0,255,102,0.3)]">
-            <div
-              className="h-full transition-all duration-200"
-              style={{
-                width: `${Math.max(0, Math.min(100, integrity))}%`,
-                backgroundColor: integrityColor,
-                boxShadow: `0 0 10px ${integrityColor}`,
-              }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Center: OBJECTIVE HUD - BIO-CORES COLLECTED & SPEEDRUN TELEMETRY */}
-        <div className="flex flex-col items-center gap-0.5 sm:gap-1 font-mono-tech">
-          {/* Stage Name Badge & Rhythm BPM */}
-          <div className="hidden xs:flex items-center gap-1.5 sm:gap-2">
-            <span className="px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-[#00FFD1]/10 text-[#00FFD1] border border-[#00FFD1]/40 shadow-[0_0_8px_rgba(0,255,209,0.3)]">
-              STAGE {stageNum}: {stageName}
+          {/* Bio-Core Objectives Tracker */}
+          <div className="hidden xs:flex items-center gap-1 bg-[#060312]/90 border border-[#00FFD1]/30 px-1.5 sm:px-2 py-0.5 sm:py-1">
+            <span className="text-[7.5px] sm:text-[8.5px] text-[#00FFD1]/70 font-bold uppercase mr-0.5">
+              {t.cores}:
             </span>
+            {[...Array(totalCores)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border transition-all ${
+                  i < collected
+                    ? 'bg-[#00FFD1] border-[#00FFD1] shadow-[0_0_8px_#00FFD1] animate-pulse'
+                    : 'bg-transparent border-[#00FFD1]/30'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Rhythm Combat Metronome Indicator */}
+          {rhythmBeatState && settings.rhythmCombatEnabled !== false && (
             <div
-              className={`flex items-center gap-1 px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[9px] font-mono-tech border transition-all ${
-                isRhythmNear
-                  ? 'bg-[#00FFD1]/20 text-[#00FFD1] border-[#00FFD1] shadow-[0_0_10px_#00FFD1]'
-                  : 'bg-[#120a28]/60 text-gray-400 border-white/20'
+              className={`hidden md:flex items-center gap-1 px-2 py-0.5 border text-[9px] font-bold transition-all ${
+                rhythmBeatState.inBeatWindow
+                  ? 'border-[#00FFD1] bg-[#00FFD1]/20 text-[#00FFD1] shadow-[0_0_12px_#00FFD1] scale-105'
+                  : 'border-white/10 bg-black/40 text-gray-400'
               }`}
             >
-              <Radio size={9} className={isRhythmNear ? 'animate-pulse text-[#00FFD1]' : ''} />
-              <span>{bpm} BPM</span>
-            </div>
-          </div>
-
-          {/* Primary Objective Pod */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 bg-[#060312]/90 px-2 sm:px-3 py-0.5 sm:py-1 border border-[#00FFD1]/50 shadow-[0_0_15px_rgba(0,255,209,0.25)]">
-            <div className="flex items-center gap-1 text-[9px] sm:text-xs font-black tracking-wide text-white">
-              <Target size={12} className="text-[#00FFD1] animate-spin-slow shrink-0" />
-              <span className="text-[#00FFD1] text-[8.5px] sm:text-[10px] uppercase font-bold">Cores:</span>
-              <span className="text-white drop-shadow-[0_0_8px_#00FFD1]">{collected}/{totalCores}</span>
-            </div>
-
-            {/* 3 Core Status Pills */}
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              {[0, 1, 2].map((idx) => {
-                const isCollected = idx < collected;
-                return (
-                  <div
-                    key={idx}
-                    className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-none border transition-all duration-300 ${
-                      isCollected
-                        ? 'bg-[#00FFD1] border-[#ffffff] shadow-[0_0_10px_#00FFD1]'
-                        : 'bg-[#180a24] border-[#FF0055]/50 animate-pulse'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Objective Tracker Arrow / Indicator */}
-            {nearest && (
-              <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-white/20 text-[10px] uppercase">
-                <div
-                  className="w-4 h-4 flex items-center justify-center text-[#00FFD1] transition-transform duration-100"
-                  style={{ transform: `rotate(${arrowAngleDeg}deg)` }}
-                >
-                  ▲
-                </div>
-                <span className={isPortalUnlocked ? 'text-[#00FF66] font-bold animate-pulse' : 'text-[#FFE600] font-bold'}>
-                  {isPortalUnlocked ? 'PORTAL' : 'CORE'}: {nearestDistMeters}m
+              <Sparkles size={11} className={rhythmBeatState.inBeatWindow ? 'text-[#00FFD1] animate-spin' : 'text-gray-500'} />
+              <span>{Math.round(rhythmBeatState.bpm)} BPM</span>
+              {rhythmBeatState.inBeatWindow && (
+                <span className="text-[8px] px-1 bg-[#00FFD1] text-black font-black uppercase">
+                  BEAT
                 </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Scores, Ghost Speedrun Delta & Audio/Pause */}
-        <div className="flex items-center gap-1.5 sm:gap-3 font-mono-tech">
-          {/* Ghost Delta Pill (If Active) */}
-          {speedrunDelta?.hasGhost && (
-            <div
-              className="hidden lg:flex items-center gap-1 px-2 py-1 bg-[#05030e]/90 border text-[9px] font-mono-tech font-bold uppercase tracking-wider"
-              style={{
-                borderColor: deltaColor,
-                color: deltaColor,
-                boxShadow: `0 0 10px ${deltaColor}40`,
-              }}
-            >
-              <Ghost size={11} />
-              <span>{speedrunDelta.formattedDelta}</span>
+              )}
             </div>
           )}
+        </div>
 
+        {/* Center: Stage Name / Objective Telemetry */}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1 text-[8px] sm:text-[9.5px] text-cyan-300 font-bold tracking-widest uppercase">
+            <span>{t.stage} 0{stageNum}</span>
+            <span className="text-cyan-500">//</span>
+            <span className="truncate max-w-[100px] sm:max-w-xs">{stageName}</span>
+          </div>
+
+          {/* Objective Navigation Radar Pointer */}
+          {nearest && (
+            <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] font-bold mt-0.5">
+              <div
+                className="transition-transform duration-100 ease-out"
+                style={{ transform: `rotate(${arrowAngleDeg}deg)` }}
+              >
+                <Target
+                  size={11}
+                  className={isPortalUnlocked ? 'text-[#00FF66] animate-bounce' : 'text-[#00FFD1]'}
+                />
+              </div>
+              <span className={isPortalUnlocked ? 'text-[#00FF66] font-black' : 'text-cyan-200'}>
+                {isPortalUnlocked ? 'PORTAL' : 'CORE'}: {nearestDistMeters}M
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Score, Language & Tactical Buttons */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Current Score */}
           <div className="flex flex-col items-end">
             <span className="text-[#00FF66] opacity-90 text-[7.5px] sm:text-[9px] uppercase font-bold tracking-wider drop-shadow-[0_0_6px_rgba(0,255,102,0.5)]">
-              SCORE
+              {t.score}
             </span>
             <span className="text-[11px] sm:text-sm md:text-base font-black text-[#00FF66] drop-shadow-[0_0_12px_#00FF66] tracking-wider">
               {formattedScore}
@@ -240,6 +217,21 @@ export const HUD: React.FC<HUDProps> = ({
 
           {/* Interactive Controls Bar */}
           <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
+            {/* Language Switcher Button */}
+            {onToggleLanguage && (
+              <button
+                id="hud-language-toggle"
+                type="button"
+                onClick={onToggleLanguage}
+                aria-label="Switch Language (မြန်မာ / English)"
+                title="Switch Language (မြန်မာ / English)"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-cyan-400/40 bg-[#050505] hover:bg-cyan-500/20 text-[#00FFD1] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+              >
+                <Globe size={11} />
+                <span>{currentLang === 'MY' ? '🇲🇲 MY' : '🇬🇧 EN'}</span>
+              </button>
+            )}
+
             {/* Tactical Combat Guide / How to Play Button */}
             <button
               id="hud-guide-btn"
@@ -250,7 +242,7 @@ export const HUD: React.FC<HUDProps> = ({
               className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-[#00FFD1] bg-[#00FFD1]/20 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.5)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider"
             >
               <HelpCircle size={12} className="text-[#00FFD1] animate-pulse shrink-0" />
-              <span className="hidden xs:inline sm:inline">GUIDE</span>
+              <span className="hidden xs:inline sm:inline">{t.guideBtn}</span>
             </button>
 
             <button
@@ -313,14 +305,7 @@ export const HUD: React.FC<HUDProps> = ({
           {comboCount > 0 && (
             <div className="border border-[#FF00E5] bg-[#0A0A0A]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-mono-tech text-[#FF00E5] flex items-center gap-1 shadow-[0_0_12px_rgba(255,0,229,0.4)] animate-pulse">
               <span className="w-1.5 h-1.5 bg-[#FF00E5]"></span>
-              <span className="font-bold">x{comboMultiplier} COMBO ({comboCount})</span>
-            </div>
-          )}
-
-          {beatStreak > 0 && (
-            <div className="border border-[#00FFD1] bg-[#00FFD1]/10 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-mono-tech text-[#00FFD1] flex items-center gap-1 shadow-[0_0_12px_rgba(0,255,209,0.4)]">
-              <Zap size={9} className="text-[#00FFD1]" />
-              <span className="font-bold">⚡ x{beatStreak}</span>
+              <span className="font-bold">x{comboMultiplier} {t.combo} ({comboCount})</span>
             </div>
           )}
 
@@ -328,12 +313,12 @@ export const HUD: React.FC<HUDProps> = ({
           {isPortalUnlocked ? (
             <div className="border border-[#00FF66] bg-[#00FF66]/15 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-mono-tech text-[#00FF66] uppercase font-black tracking-widest animate-pulse shadow-[0_0_12px_#00FF66] flex items-center gap-1">
               <Unlock size={10} />
-              <span>PORTAL READY // ESCAPE NOW</span>
+              <span>{t.portalReadyEscape}</span>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-1 border border-[#FF0055]/40 bg-[#0A0A0A]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-mono-tech text-[#FF0055] uppercase">
               <Lock size={9} />
-              <span>PORTAL LOCKED // {3 - collected} CORES</span>
+              <span>{t.portalLocked} ({totalCores - collected})</span>
             </div>
           )}
         </div>
@@ -343,21 +328,21 @@ export const HUD: React.FC<HUDProps> = ({
           {hasShield && (
             <div className="border border-[#00FFD1] bg-[#050505]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] text-[#00FFD1] flex items-center gap-1 shadow-[0_0_10px_#00FFD1]">
               <Shield size={9} className="text-[#00FFD1]" />
-              <span className="uppercase font-bold">SHIELD</span>
+              <span className="uppercase font-bold">{t.shield}</span>
             </div>
           )}
 
           {overdriveTimer > 0 && (
             <div className="border border-[#FF00E5] bg-[#050505]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] text-[#FF00E5] flex items-center gap-1 shadow-[0_0_12px_#FF00E5]">
               <Zap size={9} className="text-[#FF00E5] animate-bounce" />
-              <span className="uppercase font-bold">OVERDRIVE ({Math.ceil(overdriveTimer / 60)}s)</span>
+              <span className="uppercase font-bold">{t.overdrive} ({Math.ceil(overdriveTimer / 60)}s)</span>
             </div>
           )}
 
           {chronoTimer > 0 && (
             <div className="border border-[#00FF66] bg-[#050505]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] text-[#00FF66] flex items-center gap-1 shadow-[0_0_10px_#00FF66]">
               <Clock size={9} className="text-[#00FF66]" />
-              <span className="uppercase font-bold">SLOW ({Math.ceil(chronoTimer / 60)}s)</span>
+              <span className="uppercase font-bold">{t.slow} ({Math.ceil(chronoTimer / 60)}s)</span>
             </div>
           )}
         </div>
@@ -385,7 +370,7 @@ export const HUD: React.FC<HUDProps> = ({
                 type="button"
                 disabled={!isUnlocked}
                 onClick={() => isUnlocked && onSelectWeapon?.(wType)}
-                className={`relative px-1.5 sm:px-2 py-0.5 sm:py-1 shrink-0 flex items-center gap-1 sm:gap-1.5 border transition-all text-left ${
+                className={`relative px-1.5 sm:px-2 py-0.5 sm:py-1 shrink-0 flex items-center gap-1 sm:gap-1.5 border transition-all text-left cursor-pointer ${
                   isEquipped
                     ? 'bg-[#180a2c] border-[#FF00E5] shadow-[0_0_15px_rgba(255,0,229,0.5)] scale-105'
                     : isUnlocked
@@ -430,5 +415,3 @@ export const HUD: React.FC<HUDProps> = ({
     </header>
   );
 };
-
-

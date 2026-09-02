@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+  }
+
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #060312;
+    color: #00FFD1;
+    font-family: 'Share Tech Mono', 'Chakra Petch', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom Cyber Scrollbar for Modals */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 3, 18, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 209, 0.4);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 209, 0.8);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', 'Share Tech Mono', sans-serif;
+}
+
+.font-mono-tech {
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.font-cyber {
+  font-family: 'Chakra Petch', sans-serif;
+}
+
+/* Geometric Grid Background */
+.geometric-grid-bg {
+  background-image: linear-gradient(rgba(0, 255, 209, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 255, 209, 0.1) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Subtle CRT Scanline overlay effect (Non-blocking & High Contrast) */
+.crt-overlay::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.18) 50%);
+  background-size: 100% 4px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+/* Geometric balance glow utilities */
+.glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 255, 209, 0.5);
+}
+
+.glow-magenta {
+  box-shadow: 0 0 15px rgba(255, 0, 229, 0.55);
+}
+
+@keyframes neon-pulse-cyan {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 255, 209, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 255, 209, 0.85);
+  }
+}
+
+.animate-pulse-cyan {
+  animation: neon-pulse-cyan 2s infinite ease-in-out;
+}
+
+@keyframes glitch-skew {
+  0% { transform: skew(0deg); }
+  20% { transform: skew(-2deg); }
+  40% { transform: skew(1.5deg); }
+  60% { transform: skew(-1deg); }
+  80% { transform: skew(2deg); }
+  100% { transform: skew(0deg); }
+}
+
+.glitch-text {
+  animation: glitch-skew 3s infinite ease-in-out;
+}

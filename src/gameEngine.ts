@@ -22,6 +22,7 @@ import {
   EnemyBacteria,
   BacteriaTentacle,
   SplatterDecal,
+  LaserBurnMark,
   FlyingSplatter,
   StageDefinition,
   StageObjectiveState,
@@ -422,9 +423,11 @@ export class GameEngine {
     rotationSpeed: 0.22,
     directionalStates: { up: false, down: false, left: false, right: false },
     actionState: 'IDLE',
+    activeCombatStyle: 'BLASTER',
     slashTimer: 0,
     slashCombo: 1,
     shootTimer: 0,
+    muzzleFlashTimer: 0,
     animTimer: 0,
     animFrame: 0,
     radius: 24,
@@ -470,6 +473,7 @@ export class GameEngine {
 
   // Organic Splatters & Permanent Platform/Wall Decals
   public permanentDecals: SplatterDecal[] = [];
+  public laserBurnMarks: LaserBurnMark[] = [];
   public flyingSplatters: FlyingSplatter[] = [];
 
   // Weather: Cyber Rain & Ambient Smog Particles
@@ -853,6 +857,8 @@ export class GameEngine {
     this.player.slashTimer = 0;
     this.player.slashCombo = 1;
     this.player.shootTimer = 0;
+    this.player.muzzleFlashTimer = 0;
+    this.player.activeCombatStyle = 'BLASTER';
     this.player.animTimer = 0;
     this.player.afterimages = [];
     this.player.isFallingIntoAbyss = false;
@@ -1084,7 +1090,10 @@ export class GameEngine {
     const isPerfect = rhythm.grade === 'PERFECT';
     const isCritical = rhythm.grade === 'CRITICAL';
 
+    this.player.activeCombatStyle = 'KATANA';
     this.player.slashTimer = 18;
+    this.player.shootTimer = 0;
+    this.player.muzzleFlashTimer = 0;
     this.player.actionState = 'SLASHING';
     const combo = this.player.slashCombo;
     this.player.slashCombo = combo >= 3 ? 1 : combo + 1;
@@ -1395,7 +1404,10 @@ export class GameEngine {
       this.player.energy = Math.max(0, this.player.energy - energyCost);
     }
 
+    this.player.activeCombatStyle = 'BLASTER';
     this.player.shootTimer = currentWeapon.cooldownFrames;
+    this.player.slashTimer = 0;
+    this.player.muzzleFlashTimer = 8;
     this.player.actionState = 'SHOOTING';
 
     // Record Shoot action into AI combat memory
@@ -1927,6 +1939,7 @@ export class GameEngine {
     // 2. Action Timers Decay
     if (this.player.slashTimer > 0) this.player.slashTimer--;
     if (this.player.shootTimer > 0) this.player.shootTimer--;
+    if (this.player.muzzleFlashTimer && this.player.muzzleFlashTimer > 0) this.player.muzzleFlashTimer--;
     if (this.player.dashTimer > 0) {
       this.player.dashTimer--;
       this.player.afterimages.push({
@@ -3929,8 +3942,8 @@ export class GameEngine {
 
     // --- ACTION ANIMATIONS ---
     const isRunning = p.actionState === 'RUNNING' || p.actionState === 'OVERDRIVE';
-    const isSlashing = p.actionState === 'SLASHING';
-    const isShooting = p.actionState === 'SHOOTING';
+    const isSlashing = p.actionState === 'SLASHING' || p.slashTimer > 0;
+    const isShooting = p.actionState === 'SHOOTING' || p.shootTimer > 0 || (p.muzzleFlashTimer !== undefined && p.muzzleFlashTimer > 0);
     const isDashing = p.actionState === 'DASHING';
 
     // Bobbing & Stride physics
@@ -4182,32 +4195,82 @@ export class GameEngine {
       ctx.beginPath();
       ctx.arc(32 - recoil, bodyY - 4, 11, 0, Math.PI * 2);
       ctx.stroke();
-    } else {
-      // Idle / Running: Sheathed Plasma Katana along back
+
+      // Also render Sheathed Plasma Katana on back during Blaster firing
       ctx.strokeStyle = '#334155';
       ctx.lineWidth = 3.5;
       ctx.beginPath();
       ctx.moveTo(-10, bodyY + 14);
       ctx.lineTo(-24, bodyY - 22);
       ctx.stroke();
-
-      // Glowing Katana Hilt & Edge
       ctx.strokeStyle = suitColor;
       ctx.shadowColor = suitColor;
-      ctx.shadowBlur = 10;
-      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(-15, bodyY + 6);
       ctx.lineTo(-24, bodyY - 22);
       ctx.stroke();
+    } else {
+      // Idle / Running Stance
+      if (p.activeCombatStyle === 'BLASTER') {
+        // Blaster in hand at low ready
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, bodyY - 2);
+        ctx.lineTo(12, bodyY + 2);
+        ctx.stroke();
 
-      // Idle Arm Stance
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, bodyY - 2);
-      ctx.lineTo(8, bodyY + 8);
-      ctx.stroke();
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#00FFD1';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(10, bodyY - 2, 10, 5);
+        ctx.strokeRect(10, bodyY - 2, 10, 5);
+
+        // Sheathed Plasma Katana along back
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-10, bodyY + 14);
+        ctx.lineTo(-24, bodyY - 22);
+        ctx.stroke();
+
+        ctx.strokeStyle = suitColor;
+        ctx.shadowColor = suitColor;
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-15, bodyY + 6);
+        ctx.lineTo(-24, bodyY - 22);
+        ctx.stroke();
+      } else {
+        // Katana ready / sheathed
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-10, bodyY + 14);
+        ctx.lineTo(-24, bodyY - 22);
+        ctx.stroke();
+
+        // Glowing Katana Hilt & Edge
+        ctx.strokeStyle = suitColor;
+        ctx.shadowColor = suitColor;
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-15, bodyY + 6);
+        ctx.lineTo(-24, bodyY - 22);
+        ctx.stroke();
+
+        // Idle Arm Stance
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, bodyY - 2);
+        ctx.lineTo(8, bodyY + 8);
+        ctx.stroke();
+      }
     }
     ctx.restore();
 
@@ -4697,7 +4760,12 @@ export class GameEngine {
 
     if (closestTarget) {
       const { ent, bac } = closestTarget;
-      // Execute Instant Silent Assassination Takedown!
+      // Execute Instant Silent Assassination Takedown with Katana!
+      this.player.activeCombatStyle = 'KATANA';
+      this.player.slashTimer = 18;
+      this.player.shootTimer = 0;
+      this.player.muzzleFlashTimer = 0;
+      this.player.actionState = 'SLASHING';
       bac.health = 0;
       sound.playCritical();
       this.triggerHitstop(65);

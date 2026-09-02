@@ -63,6 +63,7 @@ export class ThreeSceneManager {
   private heroVolumetricCone: THREE.Mesh;
   private playerPointLight: THREE.PointLight;
   private swordLight: THREE.PointLight;
+  private blasterLight: THREE.PointLight;
   private portalPointLight: THREE.PointLight;
   private labVatLights: THREE.PointLight[] = [];
 
@@ -94,6 +95,12 @@ export class ThreeSceneManager {
   private playerKatanaCore: THREE.Mesh;
   private playerKatanaGlow: THREE.Mesh;
   private playerKatanaEnergyRing: THREE.Mesh;
+  private playerSheathedKatanaGroup: THREE.Group;
+  private playerBlasterGroup: THREE.Group;
+  private playerBlasterBody: THREE.Mesh;
+  private playerBlasterCoil: THREE.Mesh;
+  private playerBlasterLaserBeam: THREE.Mesh;
+  private playerMuzzleFlashMesh: THREE.Mesh;
   private playerShieldMesh: THREE.Mesh;
   private playerThrusterLeft: THREE.Mesh;
   private playerThrusterRight: THREE.Mesh;
@@ -2221,10 +2228,14 @@ export class ThreeSceneManager {
     this.playerPointLight.position.set(0, 30, 0);
     this.scene.add(this.playerPointLight);
 
-    // 6. Katana Slash Point Light
+    // 6. Katana Slash Point Light & Blaster Muzzle Light
     this.swordLight = new THREE.PointLight(0xff00e5, 0, 340, 1.8);
     this.swordLight.position.set(0, 35, 0);
     this.scene.add(this.swordLight);
+
+    this.blasterLight = new THREE.PointLight(0x00ffd1, 0, 320, 2.0);
+    this.blasterLight.position.set(0, 30, 0);
+    this.scene.add(this.blasterLight);
 
     // 7. Portal Green Beacon Light
     this.portalPointLight = new THREE.PointLight(0x00ff66, 3.2, 700, 1.2);
@@ -3472,6 +3483,81 @@ export class ThreeSceneManager {
     this.playerKatanaGroup.rotation.x = Math.PI / 3.2;
     this.playerRightArm.add(this.playerKatanaGroup);
 
+    // 6.5. Sheathed Katana on Back Chassis (Visible when Blaster is active)
+    this.playerSheathedKatanaGroup = new THREE.Group();
+    const scabbardGeo = new THREE.BoxGeometry(1.6, 38, 2.8);
+    const scabbard = new THREE.Mesh(scabbardGeo, this.materials.playerCarbonArmor);
+    scabbard.position.y = 8;
+    this.playerSheathedKatanaGroup.add(scabbard);
+
+    const scabbardTrim = new THREE.Mesh(new THREE.BoxGeometry(2.0, 39, 0.8), this.materials.playerCyanNeon);
+    scabbardTrim.position.y = 8;
+    this.playerSheathedKatanaGroup.add(scabbardTrim);
+
+    const sheathedHilt = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.5, 10, 8), this.materials.playerTitaniumTrim);
+    sheathedHilt.position.y = 31;
+    this.playerSheathedKatanaGroup.add(sheathedHilt);
+
+    const sheathedTsuba = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.4, 3.8), this.materials.playerTitaniumTrim);
+    sheathedTsuba.position.y = 26;
+    this.playerSheathedKatanaGroup.add(sheathedTsuba);
+
+    this.playerSheathedKatanaGroup.position.set(-5.5, 4.5, -6.0);
+    this.playerSheathedKatanaGroup.rotation.z = -0.55;
+    this.playerSheathedKatanaGroup.rotation.x = -0.15;
+    this.playerTorso.add(this.playerSheathedKatanaGroup);
+
+    // 6.6. High-Tech Heavy Sci-Fi Blaster Gun (Attached to Right Arm)
+    this.playerBlasterGroup = new THREE.Group();
+
+    // Gun Receiver Chassis
+    const blasterBodyGeo = new THREE.BoxGeometry(3.6, 6.5, 14);
+    this.playerBlasterBody = new THREE.Mesh(blasterBodyGeo, this.materials.playerCarbonArmor);
+    this.playerBlasterBody.position.set(0, 0, 4);
+    this.playerBlasterGroup.add(this.playerBlasterBody);
+
+    // Titanium Barrel Shroud
+    const barrelGeo = new THREE.CylinderGeometry(1.5, 1.7, 10, 8);
+    barrelGeo.rotateX(Math.PI / 2);
+    const blasterBarrel = new THREE.Mesh(barrelGeo, this.materials.playerTitaniumTrim);
+    blasterBarrel.position.set(0, 1.2, 13);
+    this.playerBlasterGroup.add(blasterBarrel);
+
+    // Glowing Neon Dual Plasma Coils
+    const coilGeo = new THREE.BoxGeometry(3.0, 1.6, 11);
+    this.playerBlasterCoil = new THREE.Mesh(coilGeo, this.materials.playerCyanNeon);
+    this.playerBlasterCoil.position.set(0, 3.2, 4);
+    this.playerBlasterGroup.add(this.playerBlasterCoil);
+
+    // Battery / Power Cell Pack
+    const batteryPack = new THREE.Mesh(new THREE.BoxGeometry(2.4, 5.0, 4.0), this.materials.playerSecondaryPlates);
+    batteryPack.position.set(0, -3.8, 1.5);
+    this.playerBlasterGroup.add(batteryPack);
+
+    // Holographic Targeting Guide Beam
+    const guideBeamGeo = new THREE.CylinderGeometry(0.15, 0.15, 75, 4);
+    guideBeamGeo.rotateX(Math.PI / 2);
+    this.playerBlasterLaserBeam = new THREE.Mesh(
+      guideBeamGeo,
+      new THREE.MeshBasicMaterial({ color: 0x00ffd1, transparent: true, opacity: 0.55 })
+    );
+    this.playerBlasterLaserBeam.position.set(0, 1.2, 54);
+    this.playerBlasterGroup.add(this.playerBlasterLaserBeam);
+
+    // Muzzle Flash Starburst FX
+    const muzzleGeo = new THREE.OctahedronGeometry(3.8, 0);
+    this.playerMuzzleFlashMesh = new THREE.Mesh(
+      muzzleGeo,
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
+    );
+    this.playerMuzzleFlashMesh.position.set(0, 1.2, 19);
+    this.playerMuzzleFlashMesh.visible = false;
+    this.playerBlasterGroup.add(this.playerMuzzleFlashMesh);
+
+    this.playerBlasterGroup.position.set(0, -18, 4.5);
+    this.playerBlasterGroup.rotation.x = -Math.PI / 2.2;
+    this.playerRightArm.add(this.playerBlasterGroup);
+
     // 7. Dual High-Output Vector Jetpack Thrusters on Back
     const thrusterHousingGeo = new THREE.CylinderGeometry(2.8, 4.2, 10, 8);
     thrusterHousingGeo.rotateX(Math.PI / 3);
@@ -4274,32 +4360,83 @@ export class ThreeSceneManager {
       this.playerReactorRing.rotation.z += 0.08;
     }
 
-    // Katana Slash & Stealth Takedown Animation
-    if (player.slashTimer > 0) {
-      const slashProgress = 1 - player.slashTimer / 12;
-      this.playerRightArm.rotation.x = -Math.PI / 2 + slashProgress * Math.PI * 1.2;
-      this.playerRightArm.rotation.y = Math.sin(slashProgress * Math.PI) * 1.1;
+    // Combat Style & Action Determination
+    const isBlaster = player.activeCombatStyle === 'BLASTER';
+    const isShooting = player.actionState === 'SHOOTING' || player.shootTimer > 0 || (player.muzzleFlashTimer !== undefined && player.muzzleFlashTimer > 0);
+    const isSlashing = player.actionState === 'SLASHING' || player.slashTimer > 0;
 
-      // Activate Slash Arc Mesh with High Intensity
-      this.slashArcMesh.visible = true;
-      this.slashArcMesh.position.set(px, 18, pz);
-      this.slashArcMesh.rotation.y = this.playerGroup.rotation.y + Math.PI / 2;
-      (this.slashArcMesh.material as THREE.MeshBasicMaterial).opacity = (player.slashTimer / 12) * 0.95;
-
-      // Sword Light Pulse
-      this.swordLight.position.set(px, 30, pz);
-      this.swordLight.intensity = (player.slashTimer / 12) * 6.5;
-
-      // Plasma Blade Frequency Flare
-      if (this.playerKatanaGlow) {
-        this.playerKatanaGlow.scale.set(1.4, 1.1, 1.6);
-      }
-    } else {
+    if (isBlaster) {
+      // --- BLASTER WEAPON ACTIVE ---
+      this.playerBlasterGroup.visible = true;
+      this.playerKatanaGroup.visible = false;
+      this.playerSheathedKatanaGroup.visible = true;
       this.slashArcMesh.visible = false;
       this.swordLight.intensity = 0;
-      if (this.playerKatanaGlow) {
-        const idlePulse = (isCovered ? 0.4 : 1.0) + Math.sin(this.animTick * 12) * 0.15;
-        this.playerKatanaGlow.scale.set(idlePulse, 1.0, idlePulse);
+
+      if (isShooting) {
+        // Shooting Aim Stance & Recoil Kickback
+        const recoilKick = Math.sin(this.animTick * 45) * 2.2;
+        this.playerRightArm.rotation.x = -Math.PI / 2.05 + Math.sin(this.animTick * 45) * 0.08;
+        this.playerRightArm.rotation.y = 0.05;
+        this.playerBlasterGroup.position.z = 4.5 - recoilKick;
+
+        // Active Muzzle Flash Burst & Point Light
+        this.playerMuzzleFlashMesh.visible = true;
+        const flashScale = 1.0 + Math.random() * 0.7;
+        this.playerMuzzleFlashMesh.scale.set(flashScale, flashScale, flashScale * 1.5);
+
+        this.blasterLight.position.set(px, 28, pz);
+        this.blasterLight.intensity = 6.0;
+        this.playerBlasterLaserBeam.visible = true;
+      } else {
+        // Idle / Running Ready Stance
+        this.playerBlasterGroup.position.z = 4.5;
+        this.playerMuzzleFlashMesh.visible = false;
+        this.blasterLight.intensity = 0;
+        this.playerBlasterLaserBeam.visible = isMoving;
+
+        if (isMoving) {
+          this.playerRightArm.rotation.x = -0.65 - runCycle * 0.25;
+          this.playerRightArm.rotation.y = 0;
+        } else {
+          this.playerRightArm.rotation.x = -0.55;
+          this.playerRightArm.rotation.y = 0;
+        }
+      }
+    } else {
+      // --- KATANA / TAKEDOWN ACTIVE ---
+      this.playerBlasterGroup.visible = false;
+      this.playerKatanaGroup.visible = true;
+      this.playerSheathedKatanaGroup.visible = false;
+      this.playerMuzzleFlashMesh.visible = false;
+      this.blasterLight.intensity = 0;
+
+      if (isSlashing) {
+        const slashProgress = 1 - (player.slashTimer || 12) / 18;
+        this.playerRightArm.rotation.x = -Math.PI / 2 + slashProgress * Math.PI * 1.3;
+        this.playerRightArm.rotation.y = Math.sin(slashProgress * Math.PI) * 1.2;
+
+        // Activate Slash Arc Mesh with High Intensity
+        this.slashArcMesh.visible = true;
+        this.slashArcMesh.position.set(px, 18, pz);
+        this.slashArcMesh.rotation.y = this.playerGroup.rotation.y + Math.PI / 2;
+        (this.slashArcMesh.material as THREE.MeshBasicMaterial).opacity = ((player.slashTimer || 12) / 18) * 0.95;
+
+        // Sword Light Pulse
+        this.swordLight.position.set(px, 30, pz);
+        this.swordLight.intensity = ((player.slashTimer || 12) / 18) * 6.5;
+
+        // Plasma Blade Frequency Flare
+        if (this.playerKatanaGlow) {
+          this.playerKatanaGlow.scale.set(1.4, 1.1, 1.6);
+        }
+      } else {
+        this.slashArcMesh.visible = false;
+        this.swordLight.intensity = 0;
+        if (this.playerKatanaGlow) {
+          const idlePulse = (isCovered ? 0.4 : 1.0) + Math.sin(this.animTick * 12) * 0.15;
+          this.playerKatanaGlow.scale.set(idlePulse, 1.0, idlePulse);
+        }
       }
     }
 
@@ -4333,9 +4470,11 @@ export class ThreeSceneManager {
     (this.playerVisor.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     (this.playerReactorCore.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     (this.playerKatanaBlade.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
+    (this.playerBlasterCoil.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     (this.playerPlasmaFlameLeft.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     (this.playerPlasmaFlameRight.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     this.playerPointLight.color.setHex(neonColor);
+    this.blasterLight.color.setHex(neonColor);
 
     // Pulse the core Arc Reactor with 130 BPM rhythm
     if (this.playerReactorCore) {

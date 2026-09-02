@@ -444,6 +444,8 @@ export interface Player {
   slashTimer: number;
   slashCombo: number;
   shootTimer: number;
+  muzzleFlashTimer?: number;
+  activeCombatStyle?: 'BLASTER' | 'KATANA';
   animTimer: number;
   animFrame: number;
   takedownAnimTimer?: number;
@@ -891,6 +893,25 @@ export interface SplatterDecal {
   alpha: number;
   rotation: number;
   attachedSurface?: 'WALL' | 'FLOOR' | 'CEILING' | 'FREE';
+}
+
+// Temporary Glowing Laser Burn / Scorch Mark adhered to walls and floors
+export interface LaserBurnMark {
+  id: number;
+  x: number;
+  y: number;
+  z?: number;
+  radius: number;
+  color: string;
+  glowColor: string;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  normalX: number;
+  normalY: number;
+  spokes: Array<{ angle: number; length: number; width: number }>;
+  surface: 'WALL' | 'FLOOR' | 'OBSTACLE';
+  createdTimestamp?: number;
 }
 
 // In-Flight Organic Fluid Burst Particle

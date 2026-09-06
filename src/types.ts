@@ -369,6 +369,8 @@ export interface DirectionState {
 
 export type GameState = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER' | 'SETTINGS' | 'MAP_VIEW' | 'STAGE_CLEAR' | 'GAME_VICTORY';
 
+export type DeathCause = 'COMBAT' | 'PITFALL_ABYSS' | 'HAZARD';
+
 // Exotic Weapon Arsenal Definitions
 export type WeaponType = 
   | 'PLASMA_BLASTER' 
@@ -453,6 +455,8 @@ export interface Player {
   // Abyss Falling States
   isFallingIntoAbyss?: boolean;
   fallingTimer?: number;
+  fallingMaxTimer?: number;
+  fallDepthMeters?: number;
 
   // Dimensions & Hitbox
   radius: number;
@@ -714,7 +718,8 @@ export type WorldEntityType =
   | 'POWER_CONDUIT' 
   | 'LOOT_CACHE'
   | 'MUTATED_BACTERIA'
-  | 'CYBER_EXIT_PORTAL';
+  | 'CYBER_EXIT_PORTAL'
+  | 'BOSS_SPAWN_RIFT';
 
 export type BacteriaAIState = 
   | 'PATROL' 
@@ -732,6 +737,8 @@ export type BacteriaAIState =
   | 'PANIC_FLEE'
   | 'TACTICAL_RETREAT'
   | 'AMBUSH_FLANK'
+  | 'WALL_AMBUSH'
+  | 'AMBUSH_PEEK_ATTACK'
   | 'GLITCH_DASH'
   | 'CHARGE_ATTACK'
   | 'EMP_CHARGE'
@@ -815,6 +822,7 @@ export interface EnemyBacteria {
   projectileCooldown?: number;
   isMissionTarget?: boolean;
   isBoss?: boolean;
+  isBossPendingSpawn?: boolean;
   bossPhase?: number;
   maxBossPhases?: number;
   shield?: number;
@@ -864,6 +872,20 @@ export interface EnemyBacteria {
   pitAttackCooldown?: number;
   pitNavAngle?: number;
   pitBlockedPlayer?: boolean;
+  // Wall Ambush, Corner Hiding & Proximity Weapons
+  ambushTargetWall?: { x: number; y: number; edgeX: number; edgeY: number; normalX: number; normalY: number } | null;
+  ambushPeekTimer?: number;
+  ambushState?: 'IN_COVER' | 'PEEKING' | 'PREPARING_SHOT';
+  ambushWeaponCharge?: number;
+  ambushShotCooldown?: number;
+  isAmbushing?: boolean;
+  // Bacteria Robot Mecha Archetype & Procedural Diversity
+  cyberMechaType?: 'BIO_ARACHNID_MECH' | 'CYBER_VIPER_POD' | 'HEAVY_DREADNOUGHT_CYBORG' | 'INSECTOID_NANOSWARM_BOT' | 'ASSASSIN_STALKER_DROID' | 'QUANTUM_ROBO_MUTANT';
+  proceduralRobotSeed?: number;
+  robotEyeStyle?: 'CYCLOPS_BEAM' | 'DUAL_DIODE' | 'COMPOUND_HEX' | 'VISOR_SCANNER';
+  robotArmStyle?: 'PLASMA_CANNON' | 'HYDRAULIC_CLAW' | 'ROTARY_BLADE' | 'NEEDLE_LASER';
+  robotChassisColor?: string;
+  robotGlowColor?: string;
 }
 
 export interface BossState {
@@ -914,6 +936,28 @@ export interface LaserBurnMark {
   createdTimestamp?: number;
 }
 
+// In-Flight Sci-Fi Plasma Laser Bolt / Weapon Projectile
+export interface Projectile {
+  id: number;
+  position: Vector2D;
+  velocity: Vector2D;
+  radius: number;
+  color: string;
+  damage: number;
+  life: number;
+  maxLife: number;
+  trail: Vector2D[];
+  weaponType?: WeaponType;
+  isEnemy?: boolean;
+  isHoming?: boolean;
+  targetId?: number;
+  isVortex?: boolean;
+  vortexRadius?: number;
+  knockback?: number;
+  isCriticalFinisher?: boolean;
+  isMashed?: boolean;
+}
+
 // In-Flight Organic Fluid Burst Particle
 export interface FlyingSplatter {
   x: number;
@@ -940,6 +984,17 @@ export interface ExitPortalData {
   vortexRotation: number;
 }
 
+export interface BossRiftData {
+  spawnPoint: Vector2D;
+  radius: number;
+  charging: boolean;
+  countdown: number;
+  maxCountdown: number;
+  isObstructed: boolean;
+  bossEntityId?: string;
+  spawned: boolean;
+}
+
 export interface WorldEntity {
   id: string;
   type: WorldEntityType;
@@ -955,6 +1010,7 @@ export interface WorldEntity {
   dataReward?: number;
   bacteriaData?: EnemyBacteria;
   portalData?: ExitPortalData;
+  bossRiftData?: BossRiftData;
 }
 
 // Collectible Cyber Assets & Powerups
@@ -1036,8 +1092,16 @@ export interface StageObjectiveState {
   unlockedWeapons: WeaponType[];
   weaponArsenal?: WeaponInfo[];
   bossState?: BossState | null;
+  bossSpawnStatus?: {
+    pending: boolean;
+    spawnPoint: Vector2D;
+    distanceToPlayer: number;
+    isObstructed: boolean;
+    countdown: number;
+    maxCountdown: number;
+  } | null;
   nearestObjective?: {
-    type: 'BIO_CORE' | 'PORTAL' | 'CYBER_EXIT_PORTAL' | 'MISSION_TARGET' | 'BOSS' | 'SURRENDERED_ENEMY';
+    type: 'BIO_CORE' | 'PORTAL' | 'CYBER_EXIT_PORTAL' | 'MISSION_TARGET' | 'BOSS' | 'SURRENDERED_ENEMY' | 'BOSS_SPAWN_RIFT';
     position?: Vector2D;
     distance: number;
     angle: number; // Angle in radians from player towards objective
@@ -1164,6 +1228,8 @@ export interface SpeedrunDeltaInfo {
 }
 
 // Game Settings
+export type Language = 'EN' | 'MY';
+
 export interface GameSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
@@ -1171,7 +1237,7 @@ export interface GameSettings {
   crtOverlay: boolean;
   touchControls: boolean;
   characterHue: number;
-  language?: 'EN' | 'MY';
+  language?: Language;
   compassEnabled?: boolean;
   minimapEnabled?: boolean;
   ghostEnabled?: boolean;
@@ -1204,6 +1270,9 @@ export interface RadarTelemetryData {
     alertness?: number; // 0..100
     state?: BacteriaAIState | string;
     canStealthKill?: boolean;
+    isAmbushing?: boolean;
+    ambushState?: 'IN_COVER' | 'PEEKING' | 'PREPARING_SHOT';
+    cyberMechaType?: string;
   }>;
   obstacles?: Array<{
     x: number;
@@ -1300,5 +1369,74 @@ export interface EnemyComboPredictionResult {
   defenseType: 'EVASION_DASH' | 'DEFENSIVE_BLOCK' | 'NONE';
   mitigationRatio: number; // e.g. 1.0 (evaded 100%), 0.85 (blocked 85%)
 }
+
+// ============================================================================
+// MULTIPLAYER CO-OP NETWORKING ARCHITECTURE (WebRTC P2P + Vercel Serverless)
+// ============================================================================
+export interface RemotePlayerState {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  health: number;
+  maxHealth: number;
+  isCrouching: boolean;
+  isCovered: boolean;
+  isSlashing: boolean;
+  isShooting: boolean;
+  isDashing: boolean;
+  isFallingIntoAbyss: boolean;
+  activeWeapon: WeaponType;
+  characterHue: number;
+  score: number;
+  kills: number;
+  lastPingTime: number;
+  pingMs: number;
+  targetX?: number;
+  targetY?: number;
+}
+
+export type MultiplayerMessageType =
+  | 'HANDSHAKE'
+  | 'HANDSHAKE_ACK'
+  | 'PLAYER_STATE'
+  | 'PLAYER_ACTION'
+  | 'TACTICAL_PING'
+  | 'ENEMY_HIT'
+  | 'OBJECTIVE_SYNC'
+  | 'PLAYER_LEAVE';
+
+export interface MultiplayerPacket {
+  type: MultiplayerMessageType;
+  senderId: string;
+  senderName: string;
+  timestamp: number;
+  data: any;
+}
+
+export interface TacticalPingMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  category: 'RUSH' | 'COVER' | 'BACKUP' | 'CORE' | 'DANGER';
+  x: number;
+  y: number;
+  timestamp: number;
+}
+
+export interface MultiplayerRoomInfo {
+  roomId: string;
+  isHost: boolean;
+  localPlayerId: string;
+  localPlayerName: string;
+  connectedPeers: { id: string; name: string; pingMs: number; isHost: boolean }[];
+  connectionStatus: 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
+  errorMessage?: string;
+}
+
 
 

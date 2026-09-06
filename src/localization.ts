@@ -61,6 +61,15 @@ export interface TranslationDictionary {
   guideBtn: string;
   combo: string;
 
+  // Boss Emergence & Spawn Clearance
+  bossSpawnBlockedTitle: string;
+  bossSpawnBlockedReason: string;
+  bossSpawnBlockedAction: string;
+  bossSpawnImminent: string;
+  bossSpawnImminentSub: string;
+  bossWarpStabilizing: string;
+  bossEmergedTitle: string;
+
   // Weapons Arsenal
   weaponKatana: string;
   weaponKatanaDesc: string;
@@ -106,6 +115,14 @@ export interface TranslationDictionary {
   proceedNextStage: string;
   victoryTitle: string;
   playAgain: string;
+  pitfallWarning: string;
+  pitfallSub: string;
+  pitfallDepth: string;
+  pitfallVelocity: string;
+  pitfallTerminal: string;
+  pitfallCauseOfDeathTitle: string;
+  pitfallCauseOfDeathDesc: string;
+  pitfallCauseOfDeathTip: string;
 
   // Combat Guide Tabs
   guideProtocol: string;
@@ -165,6 +182,29 @@ export interface TranslationDictionary {
   guideTip3Desc: string;
   guideTip4Title: string;
   guideTip4Desc: string;
+
+  // Multiplayer & Vercel
+  multiplayerTitle: string;
+  multiplayerSubtitle: string;
+  soloPlay: string;
+  multiplayerCoop: string;
+  hostRoom: string;
+  joinRoom: string;
+  roomCode: string;
+  enterRoomCode: string;
+  runnerCallsign: string;
+  copyInviteLink: string;
+  inviteLinkCopied: string;
+  connectedRunners: string;
+  waitingForTeammates: string;
+  launchMission: string;
+  leaveRoom: string;
+  vercelGuideBtn: string;
+  vercelGuideTitle: string;
+  tacticalComms: string;
+  tacticalPing: string;
+  multiplayerSquad: string;
+  vercelDeployGuide: string;
 }
 
 export const translations: Record<Language, TranslationDictionary> = {
@@ -223,6 +263,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     guideBtn: 'GUIDE',
     combo: 'COMBO',
 
+    // Boss Emergence & Spawn Clearance
+    bossSpawnBlockedTitle: '🚨 BOSS EMERGENCE HALTED: SPAWN POINT OCCUPIED',
+    bossSpawnBlockedReason: 'The Apex Titan cannot emerge because the Hero (Player) is standing directly inside the Dimensional Warp Rift. Dimensional Teleport Collision Safeguard is active.',
+    bossSpawnBlockedAction: '👉 Step back from the red hazard perimeter to allow the Boss to materialize!',
+    bossSpawnImminent: '⚡ [BOSS EMERGENCE INITIATED]',
+    bossSpawnImminentSub: 'Spawn coordinates clear! Stand by for Apex Titan breach in',
+    bossWarpStabilizing: 'WARP CORES STABILIZING',
+    bossEmergedTitle: '👑 APEX CYBER-LORD TITAN HAS EMERGED!',
+
     // Weapons
     weaponKatana: 'PLASMA KATANA',
     weaponKatanaDesc: 'Blistering 3-stage melee blade with 180° sweep.',
@@ -268,6 +317,14 @@ export const translations: Record<Language, TranslationDictionary> = {
     proceedNextStage: 'PROCEED TO NEXT STAGE',
     victoryTitle: 'APEX VICTORY ACHIEVED',
     playAgain: 'PLAY AGAIN',
+    pitfallWarning: '⚠️ CRITICAL PITFALL // FREE-FALLING INTO ABYSS',
+    pitfallSub: 'FRACTURED FLOOR COLLAPSE • ALTITUDE DROPPING RAPIDLY',
+    pitfallDepth: 'ABYSS DEPTH',
+    pitfallVelocity: 'FALL VELOCITY',
+    pitfallTerminal: 'TERMINAL VELOCITY REACHED // FATAL IMPACT IMMINENT',
+    pitfallCauseOfDeathTitle: '⚠️ CAUSE OF DEATH: PLUMMETED INTO BOTTOMLESS CHASM',
+    pitfallCauseOfDeathDesc: 'Stepped into a fractured sub-level void chasm without evasive air maneuvers.',
+    pitfallCauseOfDeathTip: '💡 TACTICAL TIP: Use Dash (Space / Shift / Dash Button) or Aerial Slashes to leap and phase across broken floors!',
 
     // Guide
     guideProtocol: 'TACTICAL PROTOCOL // PRO MANUAL',
@@ -323,6 +380,29 @@ export const translations: Record<Language, TranslationDictionary> = {
     guideTip3Desc: 'If the crimson stress vignette appears, dash or strike an enemy immediately to reset the pressure gauge and silence mortar attacks.',
     guideTip4Title: 'TIMING WITH SYNTH BEATS FOR 3.5X DAMAGE',
     guideTip4Desc: 'Watch the pulsating HUD metronome icon or listen to the bass kick. Striking on the beat guarantees critical strikes and faster weapon cooldowns.',
+
+    // Multiplayer & Vercel
+    multiplayerTitle: 'NEURAL CO-OP MULTIPLAYER',
+    multiplayerSubtitle: 'SERVERLESS WEBRTC PEER-TO-PEER NETWORK',
+    soloPlay: 'SOLO CYBER RUN',
+    multiplayerCoop: 'CO-OP MULTIPLAYER',
+    hostRoom: 'HOST CO-OP ROOM',
+    joinRoom: 'JOIN ROOM',
+    roomCode: 'ROOM CODE',
+    enterRoomCode: 'ENTER 4-DIGIT ROOM CODE',
+    runnerCallsign: 'RUNNER CALL-SIGN',
+    copyInviteLink: 'COPY INVITE LINK',
+    inviteLinkCopied: 'COPIED TO CLIPBOARD!',
+    connectedRunners: 'CONNECTED RUNNERS',
+    waitingForTeammates: 'WAITING FOR SQUADMATES TO CONNECT...',
+    launchMission: 'LAUNCH CO-OP MISSION',
+    leaveRoom: 'LEAVE / DISCONNECT',
+    vercelGuideBtn: 'VERCEL DEPLOY GUIDE',
+    vercelGuideTitle: 'VERCEL 1-CLICK DEPLOYMENT GUIDE',
+    tacticalComms: 'TACTICAL COMMS',
+    tacticalPing: 'TACTICAL PING',
+    multiplayerSquad: 'MULTIPLAYER SQUAD',
+    vercelDeployGuide: 'VERCEL DEPLOY',
   },
 
   MY: {
@@ -380,6 +460,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     guideBtn: 'လမ်းညွှန်',
     combo: 'တွဲလုံး',
 
+    // Boss Emergence & Spawn Clearance
+    bossSpawnBlockedTitle: '🚨 လူဆိုးဗိုလ် (BOSS) ထွက်ပေါ်မှု ရပ်တန့်နေပါသည်!',
+    bossSpawnBlockedReason: 'မင်းသား (Player) သည် Boss ထွက်ပေါ်မည့် Warp Rift နေရာဗဟိုတွင် သွားရပ်နေသောကြောင့် Quantum Matter ပေါက်ကွဲမှုမဖြစ်စေရန် Boss မထွက်ပေါ်သေးပါ။',
+    bossSpawnBlockedAction: '👉 Boss ထွက်ပေါ်လာစေရန် အချက်ပြစက်ဝန်း (Hazard Circle) အပြင်ဘက်သို့ အနည်းငယ် နောက်ဆုတ်ပေးပါ!',
+    bossSpawnImminent: '⚡ [လူဆိုးဗိုလ် ထွက်ပေါ်လာတော့မည်!]',
+    bossSpawnImminentSub: 'နေရာရှင်းလင်းသွားပါပြီ — စစ်ဗျူဟာပြင်ဆင်ထားပါ! ရောက်ရှိရန် စက္ကန့်:',
+    bossWarpStabilizing: 'အတိုင်းအတာ တည်ငြိမ်လာနေသည်',
+    bossEmergedTitle: '👑 လူဆိုးဗိုလ် APEX TITAN ထွက်ပေါ်လာပါပြီ! အပြင်းအထန် တိုက်ခိုက်ပါ!',
+
     // Weapons
     weaponKatana: 'ပလာစမာ ဓားရှည်',
     weaponKatanaDesc: '၁၈၀ ဒီဂရီ အနီးကပ် ၃ ဆင့် ခုတ်ပိုင်းတိုက်ခိုက်နိုင်သော ဓားမြှောင်။',
@@ -425,6 +514,14 @@ export const translations: Record<Language, TranslationDictionary> = {
     proceedNextStage: 'နောက်တစ်ဆင့်သို့ ဆက်သွားမည်',
     victoryTitle: 'စစ်ဆင်ရေး အပြီးသတ် အောင်မြင်ပါသည်!',
     playAgain: 'ထပ်မံကစားမည်',
+    pitfallWarning: '⚠️ သတိပေးချက် // အောက်ခြေမဲ့ ချောက်နက်ထဲသို့ ပြုတ်ကျနေသည်!',
+    pitfallSub: 'ပျက်စီးနေသော ကြမ်းခင်းကျိုးပေါက်မှု • အရှိန်ပြင်းစွာ ထိုးဆင်းနေသည်',
+    pitfallDepth: 'ချောက်နက် အနက်',
+    pitfallVelocity: 'ပြုတ်ကျမှု အရှိန်',
+    pitfallTerminal: 'အန္တရာယ်ရှိ အရှိန်သို့ ရောက်ရှိ // ကယ်ဆယ်၍ မရနိုင်တော့ပါ',
+    pitfallCauseOfDeathTitle: '⚠️ သေဆုံးရသည့်အကြောင်း: ပျက်စီးနေသော ကြမ်းခင်း ချောက်နက်ထဲ ပြုတ်ကျခြင်း',
+    pitfallCauseOfDeathDesc: 'ပျက်စီးကျိုးပေါက်နေသော ကြမ်းခင်းကို မရှောင်တိမ်းနိုင်ဘဲ ချောက်နက်ထဲသို့ အရှိန်ပြင်းစွာ ပြုတ်ကျ သေဆုံးခဲ့ရပါသည်',
+    pitfallCauseOfDeathTip: '💡 အကြံပြုချက်: ကျိုးပေါက်နေသော ကြမ်းပြင်များကို Dash (Space / Shift သို့မဟုတ် Dash ခလုတ်) ဖြင့် လေထဲမှ အလွယ်တကူ ခုန်ကူးကျော်လွှားနိုင်ပါသည်!',
 
     // Guide
     guideProtocol: 'နည်းဗျူဟာ လမ်းညွှန် // အဆင့်မြင့် ပရိုမန်နျူရယ်',
@@ -480,6 +577,29 @@ export const translations: Record<Language, TranslationDictionary> = {
     guideTip3Desc: 'မျက်နှာပြင်တွင် အနီရောင်လိုင်းများ ပေါ်လာပါက ချက်ချင်း ဒက်ရှ်ပြေးခြင်း သို့မဟုတ် ရန်သူကို ထိမှန်အောင် တိုက်ခိုက်ခြင်းဖြင့် အမြောက်မိုးရွာကျမှုကို ရပ်တန့်စေနိုင်ပါသည်။',
     guideTip4Title: 'တေးဂီတ စည်းချက်နှင့်အညီ တိုက်ခိုက်၍ ၃.၅ ဆ ထိခိုက်မှု ရယူပါ',
     guideTip4Desc: 'HUD ပေါ်ရှိ မီးလင်းနေသော မက်ထရိုနုမ်း သင်္ကေတ သို့မဟုတ် နောက်ခံသီချင်း၏ Bass စည်းချက်နှင့်အညီ ထိုးနှက်ပါက ပိုမိုပြင်းထန်သော Critical Damage ကို ရရှိစေပါမည်။',
+
+    // Multiplayer & Vercel
+    multiplayerTitle: 'အဖွဲ့လိုက် မာလ်တီပလေယာ စစ်ဆင်ရေး',
+    multiplayerSubtitle: 'ဆာဗာမဲ့ WebRTC P2P တိုက်ရိုက်ချိတ်ဆက်မှု ကွန်ရက်',
+    soloPlay: 'တစ်ဦးတည်း ကစားမည်',
+    multiplayerCoop: 'အဖွဲ့လိုက် ကစားမည် (CO-OP)',
+    hostRoom: 'အခန်းအသစ် ဖွင့်မည် (HOST)',
+    joinRoom: 'အခန်းသို့ ဝင်ရောက်မည် (JOIN)',
+    roomCode: 'အခန်းကုဒ်',
+    enterRoomCode: 'အခန်းကုဒ် ၄ လုံး ရိုက်ထည့်ပါ',
+    runnerCallsign: 'ကစားသမား အမည်',
+    copyInviteLink: 'ဖိတ်ခေါ်လင့်ခ် ကူးယူမည်',
+    inviteLinkCopied: 'လင့်ခ်ကို ကူးယူပြီးပါပြီ!',
+    connectedRunners: 'ချိတ်ဆက်ထားသော ရဲဘော်များ',
+    waitingForTeammates: 'အခြားကစားသမားများ ဝင်ရောက်လာရန် စောင့်ဆိုင်းနေပါသည်...',
+    launchMission: 'စစ်ဆင်ရေး စတင်ကစားမည်',
+    leaveRoom: 'အခန်းမှ ထွက်မည်',
+    vercelGuideBtn: 'VERCEL သို့ တင်နည်း လမ်းညွှန်',
+    vercelGuideTitle: 'VERCEL သို့ 1-CLICK DEPLOY ပြုလုပ်နည်း လမ်းညွှန်',
+    tacticalComms: 'အဖွဲ့တွင်း အချက်ပြ ဆက်သွယ်ရေး',
+    tacticalPing: 'စစ်ဗျူဟာ အချက်ပြ (PING)',
+    multiplayerSquad: 'အဖွဲ့လိုက် ကစားမည်',
+    vercelDeployGuide: 'VERCEL တင်ရန် လမ်းညွှန်',
   },
 };
 

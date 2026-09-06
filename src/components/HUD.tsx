@@ -20,6 +20,8 @@ import {
   Sparkles,
   HelpCircle,
   Globe,
+  Users,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   GameSettings,
@@ -46,6 +48,7 @@ interface HUDProps {
   overdriveTimer: number;
   chronoTimer: number;
   settings: GameSettings;
+  isFallingIntoAbyss?: boolean;
   objectiveState?: StageObjectiveState;
   rhythmBeatState?: RhythmBeatState;
   speedrunDelta?: SpeedrunDeltaInfo;
@@ -58,6 +61,8 @@ interface HUDProps {
   onTogglePause: () => void;
   onOpenGuide: () => void;
   onToggleLanguage?: () => void;
+  onOpenTacticalPing?: () => void;
+  onOpenMultiplayer?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -72,6 +77,7 @@ export const HUD: React.FC<HUDProps> = ({
   overdriveTimer,
   chronoTimer,
   settings,
+  isFallingIntoAbyss = false,
   objectiveState,
   rhythmBeatState,
   speedrunDelta,
@@ -84,6 +90,8 @@ export const HUD: React.FC<HUDProps> = ({
   onTogglePause,
   onOpenGuide,
   onToggleLanguage,
+  onOpenTacticalPing,
+  onOpenMultiplayer,
 }) => {
   const currentLang: Language = settings.language || 'MY';
   const t = getTranslation(currentLang);
@@ -92,8 +100,9 @@ export const HUD: React.FC<HUDProps> = ({
   const formattedScore = score.toString().padStart(7, '0');
 
   // Integrity health color calculation
-  const integrityColor =
-    integrity > 50 ? '#00FF66' : integrity > 25 ? '#FFE600' : '#FF0055';
+  const integrityColor = isFallingIntoAbyss
+    ? '#FF0055'
+    : integrity > 50 ? '#00FF66' : integrity > 25 ? '#FFE600' : '#FF0055';
 
   const collected = objectiveState?.collectedBioCores ?? 0;
   const totalCores = objectiveState?.totalBioCores ?? 3;
@@ -119,10 +128,12 @@ export const HUD: React.FC<HUDProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-3">
           <div className="flex flex-col">
             <div className="flex items-center gap-1 text-[7.5px] sm:text-[9px] uppercase tracking-wider text-[#00FFD1] font-bold">
-              <Activity size={10} className="text-[#00FFD1]" />
-              <span>{t.integrity}</span>
-              <span className="font-mono text-white text-[9px] sm:text-[10px] ml-1">
-                {Math.max(0, Math.round(integrity))}%
+              <Activity size={10} className={isFallingIntoAbyss ? 'text-[#FF0055] animate-spin' : 'text-[#00FFD1]'} />
+              <span className={isFallingIntoAbyss ? 'text-[#FF0055] font-black animate-pulse' : ''}>
+                {isFallingIntoAbyss ? '⚠️ PITFALL ABYSS' : t.integrity}
+              </span>
+              <span className={`font-mono text-[9px] sm:text-[10px] ml-1 ${isFallingIntoAbyss ? 'text-[#FF0055] font-black' : 'text-white'}`}>
+                {isFallingIntoAbyss ? 'CRITICAL' : `${Math.max(0, Math.round(integrity))}%`}
               </span>
             </div>
 
@@ -229,6 +240,36 @@ export const HUD: React.FC<HUDProps> = ({
               >
                 <Globe size={11} />
                 <span>{currentLang === 'MY' ? '🇲🇲 MY' : '🇬🇧 EN'}</span>
+              </button>
+            )}
+
+            {/* Tactical Ping Quick Button */}
+            {onOpenTacticalPing && (
+              <button
+                id="hud-tactical-ping-btn"
+                type="button"
+                onClick={onOpenTacticalPing}
+                aria-label="Tactical Ping (T)"
+                title="Tactical Squad Ping (T)"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-amber-400/60 bg-amber-950/30 hover:bg-amber-400 hover:text-black text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+              >
+                <Radio size={11} className="text-amber-400 animate-pulse shrink-0" />
+                <span className="hidden xs:inline sm:inline">{t.tacticalPing}</span>
+              </button>
+            )}
+
+            {/* Multiplayer Squad Button */}
+            {onOpenMultiplayer && (
+              <button
+                id="hud-multiplayer-btn"
+                type="button"
+                onClick={onOpenMultiplayer}
+                aria-label="Multiplayer Squad"
+                title="Multiplayer Squad"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-cyan-400/60 bg-cyan-950/30 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] shadow-[0_0_10px_rgba(0,255,209,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+              >
+                <Users size={11} className="text-[#00FFD1] shrink-0" />
+                <span className="hidden sm:inline">{t.multiplayerSquad}</span>
               </button>
             )}
 
@@ -347,6 +388,61 @@ export const HUD: React.FC<HUDProps> = ({
           )}
         </div>
       </div>
+
+      {/* Dynamic Boss Emergence & Obstruction Warning Banner */}
+      {objectiveState?.bossSpawnStatus && (
+        <div
+          id="boss-spawn-warning-hud"
+          role="alert"
+          aria-live="assertive"
+          className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-40 max-w-[92vw] sm:max-w-lg w-full pointer-events-none transition-all duration-300"
+        >
+          {objectiveState.bossSpawnStatus.isObstructed ? (
+            <div className="bg-[#140309]/95 border-2 border-[#FF0055] p-2.5 sm:p-3 shadow-[0_0_30px_rgba(255,0,85,0.6)] backdrop-blur-md animate-pulse pointer-events-auto">
+              <div className="flex items-center gap-2 mb-1.5 border-b border-[#FF0055]/40 pb-1.5">
+                <AlertTriangle className="text-[#FF0055] shrink-0 animate-bounce" size={20} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] sm:text-xs font-black text-[#FF0055] uppercase tracking-wider font-mono-tech">
+                    {t.bossSpawnBlockedTitle}
+                  </div>
+                  <div className="text-[9px] text-[#FFE600] font-mono-tech font-bold">
+                    CLEARANCE RADIUS: 110px // PROXIMITY: {Math.round(objectiveState.bossSpawnStatus.distanceToPlayer)}px
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[10px] sm:text-[11px] text-white/95 leading-snug mb-1.5 font-sans">
+                <span className="text-[#FF0055] font-bold">⚠️ {currentLang === 'MY' ? 'ရှင်းပြချက်: ' : 'CAUSE: '}</span>
+                {t.bossSpawnBlockedReason}
+              </div>
+
+              <div className="text-[9px] sm:text-[10px] text-[#00FFD1] bg-[#00FFD1]/10 px-2 py-1 border border-[#00FFD1]/30 font-mono-tech flex items-center justify-between">
+                <span>{t.bossSpawnBlockedAction}</span>
+                <span className="text-[#FF0055] font-bold tracking-widest uppercase text-[8px] animate-ping ml-2 shrink-0">
+                  {currentLang === 'MY' ? 'ရပ်ဆိုင်းထားသည်' : 'HALTED'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#041212]/90 border border-[#00FFD1] p-2 sm:p-2.5 shadow-[0_0_20px_rgba(0,255,209,0.4)] backdrop-blur-md flex items-center justify-between gap-3 pointer-events-auto">
+              <div className="flex items-center gap-2 min-w-0">
+                <Zap className="text-[#00FFD1] shrink-0 animate-spin" size={16} />
+                <div>
+                  <div className="text-[10px] sm:text-xs font-black text-[#00FFD1] uppercase tracking-wide font-mono-tech">
+                    {t.bossSpawnImminent}
+                  </div>
+                  <div className="text-[8px] sm:text-[9px] text-white/80 font-mono-tech">
+                    {t.bossWarpStabilizing} // {Math.round(objectiveState.bossSpawnStatus.distanceToPlayer)}px
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 bg-[#00FFD1]/20 border border-[#00FFD1] px-2 py-0.5 font-mono-tech text-xs sm:text-sm font-black text-[#00FFD1]">
+                {Math.ceil(objectiveState.bossSpawnStatus.countdown / 30)}s
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cyberpunk Weapon Arsenal Quick-Bar (Bottom Center, Responsive & Thumb-Safe) */}
       {weaponArsenal && (

@@ -1090,3 +1090,179 @@ export function renderCyberExitPortal(
 
   ctx.restore();
 }
+
+/**
+ * Render Apex Boss Dimensional Warp Rift
+ * Displays holographic clearance perimeter (110px radius), rotating caution rings,
+ * obstacle warnings when Hero/Player is blocking the spawn point, and emergence singularity effects.
+ */
+export function renderBossSpawnRift(
+  ctx: CanvasRenderingContext2D,
+  rift: any,
+  playerPos: Vector2D,
+  currentLang: 'EN' | 'MY' = 'MY'
+) {
+  if (!rift || !rift.active) return;
+  const riftData = rift.bossRiftData;
+  const isObstructed = riftData ? riftData.isObstructed : false;
+  const countdown = riftData ? riftData.countdown : 150;
+  const maxCountdown = riftData ? riftData.maxCountdown : 150;
+  const radius = riftData ? riftData.radius : 110;
+  const time = Date.now() * 0.003;
+
+  ctx.save();
+  ctx.translate(rift.position.x, rift.position.y);
+
+  // 1. Ground Tactical Clearance Perimeter Ring (Radius 110px)
+  ctx.save();
+  const ringColor = isObstructed ? '#FF0055' : '#00FFD1';
+  const secColor = isObstructed ? '#FFE600' : '#FF00E5';
+  ctx.strokeStyle = ringColor;
+  ctx.shadowColor = ringColor;
+  ctx.shadowBlur = isObstructed ? 20 + Math.sin(time * 8) * 8 : 14;
+  ctx.lineWidth = 3;
+
+  // Outer dashed warning circle
+  ctx.setLineDash([12, 8]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Inner pulsing barrier zone
+  const fillAlpha = isObstructed ? 0.18 + Math.sin(time * 6) * 0.08 : 0.07;
+  ctx.fillStyle = isObstructed ? `rgba(255, 0, 85, ${fillAlpha})` : `rgba(0, 255, 209, ${fillAlpha})`;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ground Octagonal Cyber Pad
+  const octRadius = radius * 0.55;
+  ctx.strokeStyle = secColor;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4 + time * (isObstructed ? 0.4 : 1.2);
+    const px = Math.cos(a) * octRadius;
+    const py = Math.sin(a) * octRadius;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Radial Hazard Spoke Marks
+  const spokeCount = 12;
+  ctx.strokeStyle = ringColor;
+  ctx.lineWidth = 2;
+  for (let s = 0; s < spokeCount; s++) {
+    const angle = (s * Math.PI * 2) / spokeCount + (isObstructed ? -time * 0.5 : time * 0.8);
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * (radius - 14), Math.sin(angle) * (radius - 14));
+    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. Central Singularity / Dimensional Core
+  ctx.save();
+  const coreRadius = 32 + (isObstructed ? Math.sin(time * 10) * 4 : Math.sin(time * 4) * 6);
+  const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius * 1.6);
+  if (isObstructed) {
+    coreGrad.addColorStop(0, '#FFFFFF');
+    coreGrad.addColorStop(0.3, '#FF0055');
+    coreGrad.addColorStop(0.7, 'rgba(255, 100, 0, 0.4)');
+    coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  } else {
+    coreGrad.addColorStop(0, '#FFFFFF');
+    coreGrad.addColorStop(0.3, '#00FFD1');
+    coreGrad.addColorStop(0.7, 'rgba(255, 0, 229, 0.4)');
+    coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  }
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, coreRadius * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crackling Dimensional Lightning Arcs
+  const arcCount = isObstructed ? 6 : 8;
+  ctx.strokeStyle = isObstructed ? '#FFE600' : '#00FFD1';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = isObstructed ? '#FFE600' : '#00FFD1';
+  ctx.shadowBlur = 10;
+  for (let a = 0; a < arcCount; a++) {
+    const startAng = (a * Math.PI * 2) / arcCount + time * 2;
+    const endAng = startAng + 0.6 + Math.sin(time * 5 + a) * 0.3;
+    const r1 = 12;
+    const r2 = coreRadius + Math.sin(time * 8 + a) * 15;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(startAng) * r1, Math.sin(startAng) * r1);
+    const midX = Math.cos((startAng + endAng) / 2) * (r1 + r2) * 0.5 + (Math.random() - 0.5) * 8;
+    const midY = Math.sin((startAng + endAng) / 2) * (r1 + r2) * 0.5 + (Math.random() - 0.5) * 8;
+    ctx.quadraticCurveTo(midX, midY, Math.cos(endAng) * r2, Math.sin(endAng) * r2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 3. Floating 3D Holographic Status HUD & Caution Billboard
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  if (isObstructed) {
+    // === BLOCKED STATE ===
+    // Pulsing Red Warning Banner
+    ctx.font = '900 13px "Orbitron", monospace';
+    ctx.fillStyle = '#FF0055';
+    ctx.shadowColor = '#FF0055';
+    ctx.shadowBlur = 18;
+    ctx.fillText('⛔ [BOSS SPAWN OBSTRUCTED]', 0, -radius - 40);
+
+    // Burmese Primary Prompt
+    ctx.font = 'bold 12px "Orbitron", "Padauk", sans-serif';
+    ctx.fillStyle = '#FFE600';
+    ctx.shadowColor = '#FFE600';
+    ctx.shadowBlur = 12;
+    ctx.fillText('⚠️ မင်းသားသည် Boss ထွက်မည့်နေရာတွင် ရပ်နေပါသည်!', 0, -radius - 22);
+
+    // Instruction to step back
+    ctx.font = 'bold 10px "Orbitron", "Padauk", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#FFFFFF';
+    ctx.fillText('👉 စက်ဝန်းအပြင်သို့ နောက်ဆုတ်ပေးပါ // STEP OUTSIDE RED RING!', 0, -radius - 6);
+
+    // Flashing Arrow pointing outwards
+    const arrowBounce = Math.sin(time * 12) * 6;
+    ctx.fillStyle = '#FF0055';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText('▼ နေရာဖယ်ပေးပါ (CLEAR SPAWN POINT) ▼', 0, radius + 22 + arrowBounce);
+
+  } else {
+    // === CHARGING / EMERGENCE STATE ===
+    const remainingSec = (countdown / 60).toFixed(1);
+    ctx.font = '900 13px "Orbitron", monospace';
+    ctx.fillStyle = '#00FFD1';
+    ctx.shadowColor = '#00FFD1';
+    ctx.shadowBlur = 16;
+    ctx.fillText(`⚡ [TITAN BREACH IN ${remainingSec}s]`, 0, -radius - 30);
+
+    ctx.font = 'bold 11px "Orbitron", "Padauk", sans-serif';
+    ctx.fillStyle = '#FF00E5';
+    ctx.shadowColor = '#FF00E5';
+    ctx.shadowBlur = 12;
+    ctx.fillText('စစ်ဗျူဟာ ပြင်ဆင်ထားပါ // STAND READY FOR COMBAT', 0, -radius - 12);
+
+    // Circular Countdown Progress Gauge
+    const progress = Math.max(0, Math.min(1, 1 - (countdown / maxCountdown)));
+    ctx.strokeStyle = '#00FFD1';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#00FFD1';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.75, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.restore();
+}

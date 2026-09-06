@@ -1,6 +1,6 @@
 import React from 'react';
-import { RotateCcw, Trophy, Navigation, Disc, Zap } from 'lucide-react';
-import { GameStats, GameSettings } from '../types';
+import { RotateCcw, Trophy, Navigation, Disc, Zap, AlertTriangle, TrendingDown } from 'lucide-react';
+import { GameStats, GameSettings, DeathCause } from '../types';
 import { DailyMissionCard } from './DailyMissionCard';
 import { dailyMissionManager } from '../dailyMissionSystem';
 import { Language, getTranslation } from '../localization';
@@ -13,6 +13,8 @@ interface GameOverModalProps {
   maxCombo: number;
   stats: GameStats;
   settings?: GameSettings;
+  deathCause?: DeathCause;
+  fallDepth?: number;
   onRestart: () => void;
 }
 
@@ -23,10 +25,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   chipsCollected,
   maxCombo,
   settings,
+  deathCause = 'COMBAT',
+  fallDepth = 0,
   onRestart,
 }) => {
   const currentLang: Language = settings?.language || 'MY';
   const t = getTranslation(currentLang);
+  const isAbyssDeath = deathCause === 'PITFALL_ABYSS';
 
   const isNewHighScore = score >= highScore && score > 0;
   const formattedScore = score.toString().padStart(7, '0');
@@ -47,26 +52,63 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
       <div
         onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden scrollbar-none border-2 border-[#FF00E5]/60 bg-[#0A0A0A]/95 p-4 sm:p-8 md:p-10 relative flex flex-col items-center shadow-[0_0_60px_rgba(255,0,229,0.3)] font-mono-tech cursor-default"
+        className={`w-full max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden scrollbar-none border-2 ${
+          isAbyssDeath ? 'border-[#FF0055] shadow-[0_0_70px_rgba(255,0,85,0.45)]' : 'border-[#FF00E5]/60 shadow-[0_0_60px_rgba(255,0,229,0.3)]'
+        } bg-[#0A0A0A]/95 p-4 sm:p-8 md:p-10 relative flex flex-col items-center font-mono-tech cursor-default`}
       >
         {/* Geometric Skewed Accents */}
-        <div className="absolute -top-3 -left-3 w-7 h-7 bg-[#FF00E5] shadow-[0_0_15px_#FF00E5] transform skew-x-12 pointer-events-none"></div>
+        <div
+          className={`absolute -top-3 -left-3 w-7 h-7 ${
+            isAbyssDeath ? 'bg-[#FF0055] shadow-[0_0_15px_#FF0055]' : 'bg-[#FF00E5] shadow-[0_0_15px_#FF00E5]'
+          } transform skew-x-12 pointer-events-none`}
+        ></div>
         <div className="absolute -bottom-3 -right-3 w-7 h-7 bg-[#00FFD1] shadow-[0_0_15px_#00FFD1] transform -skew-x-12 pointer-events-none"></div>
 
         {/* Header Alert */}
         <div className="flex items-center gap-2 mb-2 pointer-events-none">
-          <div className="w-2.5 h-2.5 bg-[#FF00E5] shadow-[0_0_6px_#FF00E5] animate-pulse"></div>
-          <span className="text-xs uppercase tracking-widest text-[#FF00E5] font-bold">
-            {t.systemCrash}
+          <div
+            className={`w-2.5 h-2.5 ${
+              isAbyssDeath ? 'bg-[#FF0055] shadow-[0_0_6px_#FF0055]' : 'bg-[#FF00E5] shadow-[0_0_6px_#FF00E5]'
+            } animate-pulse`}
+          ></div>
+          <span
+            className={`text-xs uppercase tracking-widest font-bold ${
+              isAbyssDeath ? 'text-[#FF0055]' : 'text-[#FF00E5]'
+            }`}
+          >
+            {isAbyssDeath ? '⚠️ STRUCTURAL COLLAPSE // PITFALL FATALITY' : t.systemCrash}
           </span>
         </div>
 
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,0,229,0.6)] mb-1 pointer-events-none">
           {t.gameOver}
         </h2>
-        <p className="text-[11px] text-[#00FFD1]/70 uppercase tracking-widest mb-6 pointer-events-none">
+        <p className="text-[11px] text-[#00FFD1]/70 uppercase tracking-widest mb-4 pointer-events-none">
           {t.runTerminated}
         </p>
+
+        {/* Specific Pitfall Cause of Death Banner if fallen into abyss */}
+        {isAbyssDeath && (
+          <div className="w-full bg-[#FF0055]/15 border-2 border-[#FF0055] p-3 mb-5 flex flex-col items-center gap-1.5 shadow-[0_0_25px_rgba(255,0,85,0.35)]">
+            <div className="flex items-center gap-2 text-[#FF0055] font-black text-xs uppercase tracking-widest">
+              <AlertTriangle size={16} className="animate-pulse" />
+              <span>{t.pitfallCauseOfDeathTitle}</span>
+              <AlertTriangle size={16} className="animate-pulse" />
+            </div>
+            <p className="text-[11px] text-white/90 text-center font-bold">
+              {t.pitfallCauseOfDeathDesc}
+            </p>
+            {fallDepth > 0 && (
+              <div className="flex items-center gap-1.5 text-[10px] text-[#00FFD1] mt-1 font-bold">
+                <TrendingDown size={13} />
+                <span>TERMINAL DEPTH: -{Math.max(120, fallDepth).toLocaleString()}M</span>
+              </div>
+            )}
+            <div className="text-[10px] text-[#FFAA00] bg-black/60 px-2.5 py-1 border border-[#FFAA00]/40 mt-1 w-full text-center font-bold">
+              {t.pitfallCauseOfDeathTip}
+            </div>
+          </div>
+        )}
 
         {/* New High Score Alert */}
         {isNewHighScore && (

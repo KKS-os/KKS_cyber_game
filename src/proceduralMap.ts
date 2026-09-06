@@ -333,6 +333,9 @@ export class ProceduralMapManager {
       }),
       (ent) => {
         ent.active = false;
+        ent.bacteriaData = undefined;
+        ent.portalData = undefined;
+        ent.bossRiftData = undefined;
       },
       30
     );
@@ -521,6 +524,31 @@ export class ProceduralMapManager {
         if (!col.collected) this.activeCollectibles.push(col);
       }
     }
+  }
+
+  /**
+   * Activate pending Boss entity when Boss Rift countdown finishes
+   */
+  public activatePendingBoss(bossEntityId?: string): WorldEntity | null {
+    for (const chunk of this.loadedChunks.values()) {
+      for (const cand of chunk.entities) {
+        if (
+          (bossEntityId && cand.id === bossEntityId) ||
+          (cand.bacteriaData?.isBoss && cand.bacteriaData?.isBossPendingSpawn)
+        ) {
+          cand.active = true;
+          if (cand.bacteriaData) {
+            cand.bacteriaData.active = true;
+            cand.bacteriaData.isBossPendingSpawn = false;
+          }
+          if (!this.activeTerminals.includes(cand)) {
+            this.activeTerminals.push(cand);
+          }
+          return cand;
+        }
+      }
+    }
+    return null;
   }
 
   /**
@@ -1023,7 +1051,7 @@ export class ProceduralMapManager {
       bossEnt.velocity = { x: 0, y: 0 };
       bossEnt.radius = bossRadius;
       bossEnt.angle = 0;
-      bossEnt.active = true;
+      bossEnt.active = false;
       bossEnt.glowColor = '#FF0055';
       bossEnt.health = bossHp;
       bossEnt.maxHealth = bossHp;
@@ -1037,7 +1065,7 @@ export class ProceduralMapManager {
         baseRadius: bossRadius,
         health: bossHp,
         maxHealth: bossHp,
-        active: true,
+        active: false,
         pulsePhase: 0,
         pulseSpeed: 3.5,
         wobbleAmount: 0.28,
@@ -1066,6 +1094,7 @@ export class ProceduralMapManager {
         onGround: true,
         losDetected: false,
         isBoss: true,
+        isBossPendingSpawn: true,
         bossPhase: 1,
         maxBossPhases: 3,
         shield: 200,
@@ -1074,8 +1103,40 @@ export class ProceduralMapManager {
         summonMinionTimer: 200,
         projectileCooldown: 60,
         surrenderChance: 0,
+        cyberMechaType: 'HEAVY_DREADNOUGHT_CYBORG',
+        proceduralRobotSeed: 999999,
+        robotEyeStyle: 'CYCLOPS_BEAM',
+        robotArmStyle: 'PLASMA_CANNON',
+        robotChassisColor: '#121418',
+        robotGlowColor: '#FF0055',
       };
       chunkTerminals.push(bossEnt);
+
+      // Dedicated Boss Spawn Dimensional Warp Rift
+      const bossRift = this.terminalPool.acquire();
+      bossRift.id = `boss_rift_${cx}_${cy}`;
+      bossRift.type = 'BOSS_SPAWN_RIFT';
+      bossRift.position = {
+        x: bossEnt.position.x,
+        y: bossEnt.position.y,
+      };
+      bossRift.velocity = { x: 0, y: 0 };
+      bossRift.radius = 110;
+      bossRift.angle = 0;
+      bossRift.active = true;
+      bossRift.glowColor = '#FF0055';
+      bossRift.interactionPrompt = 'APEX BOSS WARP RIFT';
+      bossRift.bossRiftData = {
+        spawnPoint: { x: bossEnt.position.x, y: bossEnt.position.y },
+        radius: 110,
+        charging: false,
+        countdown: 150,
+        maxCountdown: 150,
+        isObstructed: false,
+        bossEntityId: bossEnt.id,
+        spawned: false,
+      };
+      chunkTerminals.push(bossRift);
     }
     // (B) MISSION TARGET ELITE ENEMY (High-Value Camouflaged Target)
     else if (isMissionTarget1Chunk || isMissionTarget2Chunk || isMissionTarget3Chunk) {
@@ -1165,6 +1226,12 @@ export class ProceduralMapManager {
         isMissionTarget: true,
         dropWeaponType: assignedDrop,
         surrenderChance: 0.4,
+        cyberMechaType: 'ASSASSIN_STALKER_DROID',
+        proceduralRobotSeed: Math.abs((cx * 77777) ^ (cy * 99999) ^ targetNum),
+        robotEyeStyle: 'VISOR_SCANNER',
+        robotArmStyle: 'ROTARY_BLADE',
+        robotChassisColor: '#1a1d24',
+        robotGlowColor: '#FFE600',
       };
       chunkTerminals.push(eliteEnt);
     }
@@ -1188,12 +1255,43 @@ export class ProceduralMapManager {
           variantRoll === 1 ? 'STEALTH_STALKER' :
           variantRoll === 2 ? 'TOXIC_SPITTER' : 'CYBER_BRUTE';
 
+        const mechaTypes: Array<NonNullable<EnemyBacteria['cyberMechaType']>> = [
+          'BIO_ARACHNID_MECH',
+          'CYBER_VIPER_POD',
+          'HEAVY_DREADNOUGHT_CYBORG',
+          'INSECTOID_NANOSWARM_BOT',
+          'ASSASSIN_STALKER_DROID',
+          'QUANTUM_ROBO_MUTANT',
+        ];
+        const eyeStyles: Array<NonNullable<EnemyBacteria['robotEyeStyle']>> = [
+          'CYCLOPS_BEAM',
+          'DUAL_DIODE',
+          'COMPOUND_HEX',
+          'VISOR_SCANNER',
+        ];
+        const armStyles: Array<NonNullable<EnemyBacteria['robotArmStyle']>> = [
+          'PLASMA_CANNON',
+          'HYDRAULIC_CLAW',
+          'ROTARY_BLADE',
+          'NEEDLE_LASER',
+        ];
+        const chassisColors = ['#1a1d24', '#121418', '#2a2d34', '#363a45', '#3d2f1d', '#1f2530'];
+        const glowColors = ['#00ffd1', '#ff0055', '#39ff14', '#ff9900', '#9d00ff', '#00f0ff'];
+
+        const mechaIndex = (b + Math.abs(cx) * 3 + Math.abs(cy) * 5) % mechaTypes.length;
+        const cyberMechaType = mechaTypes[mechaIndex];
+        const robotEyeStyle = eyeStyles[(b + Math.abs(cx)) % eyeStyles.length];
+        const robotArmStyle = armStyles[(b + Math.abs(cy)) % armStyles.length];
+        const robotChassisColor = chassisColors[(b + Math.abs(cx) + Math.abs(cy)) % chassisColors.length];
+        const robotGlowColor = glowColors[(b * 2 + Math.abs(cx)) % glowColors.length];
+        const proceduralRobotSeed = Math.abs((cx * 10007) ^ (cy * 30011) ^ (b * 99991));
+
         const baseRadius = variant === 'CYBER_BRUTE' ? 32 : variant === 'STEALTH_STALKER' ? 20 : 25;
         const enemyHealth = variant === 'CYBER_BRUTE' ? baseHp * 1.6 : variant === 'STEALTH_STALKER' ? baseHp * 0.85 : baseHp;
         
         const numTentacles = variant === 'STEALTH_STALKER' ? 3 : variant === 'CYBER_BRUTE' ? 6 : 4;
         const tentacles = [];
-        const tentColor = variant === 'TOXIC_SPITTER' ? '#39FF14' : variant === 'STEALTH_STALKER' ? '#00FFD1' : variant === 'CYBER_BRUTE' ? '#FF0055' : '#FF0077';
+        const tentColor = robotGlowColor || (variant === 'TOXIC_SPITTER' ? '#39FF14' : variant === 'STEALTH_STALKER' ? '#00FFD1' : variant === 'CYBER_BRUTE' ? '#FF0055' : '#FF0077');
 
         for (let t = 0; t < numTentacles; t++) {
           tentacles.push({
@@ -1267,6 +1365,12 @@ export class ProceduralMapManager {
           stealthAlpha: variant === 'STEALTH_STALKER' ? 0.2 : 1.0,
           projectileCooldown: variant === 'TOXIC_SPITTER' ? 40 : 0,
           surrenderChance: 0.35, // 35% chance to surrender when low HP
+          cyberMechaType,
+          proceduralRobotSeed,
+          robotEyeStyle,
+          robotArmStyle,
+          robotChassisColor,
+          robotGlowColor,
         };
 
         chunkTerminals.push(bacEnt);

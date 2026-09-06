@@ -2006,32 +2006,76 @@ class SoundSynthesizer {
       this.init();
       if (!this.ctx || !this.sfxGain) return;
       const t = this.ctx.currentTime;
+      const duration = 1.25;
 
-      // Downward screaming whistle oscillator
+      // 1. Downward screaming whistle oscillator (Doppler shift plunging from 650Hz down to 22Hz)
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(480, t);
-      osc.frequency.exponentialRampToValueAtTime(30, t + 0.65);
-      gain.gain.setValueAtTime(0.45, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.68);
+      osc.frequency.setValueAtTime(650, t);
+      osc.frequency.exponentialRampToValueAtTime(22, t + duration * 0.95);
+      gain.gain.setValueAtTime(0.5, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
       osc.connect(gain);
       gain.connect(this.sfxGain);
       osc.start(t);
-      osc.stop(t + 0.68);
+      osc.stop(t + duration);
 
-      // Deep sub-bass vortex rumble
+      // 2. High-speed rushing wind turbulence noise
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = this.ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(350, t);
+      filter.frequency.linearRampToValueAtTime(1400, t + duration * 0.5);
+      filter.frequency.exponentialRampToValueAtTime(180, t + duration);
+      filter.Q.setValueAtTime(3.0, t);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.05, t);
+      noiseGain.gain.linearRampToValueAtTime(0.42, t + duration * 0.4);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
+      whiteNoise.start(t);
+      whiteNoise.stop(t + duration);
+
+      // 3. Deep sub-bass vortex singularity rumble
       const subOsc = this.ctx.createOscillator();
       const subGain = this.ctx.createGain();
       subOsc.type = 'sine';
-      subOsc.frequency.setValueAtTime(90, t);
-      subOsc.frequency.exponentialRampToValueAtTime(18, t + 0.7);
-      subGain.gain.setValueAtTime(0.5, t);
-      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+      subOsc.frequency.setValueAtTime(120, t);
+      subOsc.frequency.exponentialRampToValueAtTime(14, t + duration);
+      subGain.gain.setValueAtTime(0.6, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
       subOsc.connect(subGain);
       subGain.connect(this.sfxGain);
       subOsc.start(t);
-      subOsc.stop(t + 0.7);
+      subOsc.stop(t + duration);
+
+      // 4. Staccato Warning Siren Pings
+      for (let p = 0; p < 4; p++) {
+        const pingTime = t + p * 0.26;
+        const pingOsc = this.ctx.createOscillator();
+        const pingGain = this.ctx.createGain();
+        pingOsc.type = 'triangle';
+        pingOsc.frequency.setValueAtTime(880 - p * 110, pingTime);
+        pingGain.gain.setValueAtTime(0.28, pingTime);
+        pingGain.gain.exponentialRampToValueAtTime(0.001, pingTime + 0.16);
+        pingOsc.connect(pingGain);
+        pingGain.connect(this.sfxGain);
+        pingOsc.start(pingTime);
+        pingOsc.stop(pingTime + 0.16);
+      }
     } catch {}
   }
 

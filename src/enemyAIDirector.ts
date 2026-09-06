@@ -453,6 +453,62 @@ export function isPointInsideObstacle(point: Vector2D, obstacles: CyberObstacle[
   return false;
 }
 
+/**
+ * Searches for an optimal wall corner cover position where the enemy can duck behind
+ * an obstacle, break line-of-sight to the player, and peek around the corner to snipe.
+ */
+export function findBestAmbushWallCorner(
+  pos: Vector2D,
+  playerPos: Vector2D,
+  obstacles: CyberObstacle[]
+): { x: number; y: number; edgeX: number; edgeY: number; normalX: number; normalY: number } | null {
+  let bestSpot: { x: number; y: number; edgeX: number; edgeY: number; normalX: number; normalY: number } | null = null;
+  let minCost = Infinity;
+
+  for (const obs of obstacles) {
+    if (!obs.active) continue;
+    const b = obs.bounds;
+    // Fast distance filter
+    const obsCenterX = b.x + b.width / 2;
+    const obsCenterY = b.y + b.height / 2;
+    if (Math.hypot(obsCenterX - pos.x, obsCenterY - pos.y) > 320) continue;
+
+    // Evaluate 4 corner ambush positions around the obstacle
+    const corners = [
+      { edgeX: b.x - 12, edgeY: b.y - 12, normX: -1, normY: 0, behindX: b.x - 24, behindY: b.y + 24 }, // Top-Left
+      { edgeX: b.x + b.width + 12, edgeY: b.y - 12, normX: 1, normY: 0, behindX: b.x + b.width + 24, behindY: b.y + 24 }, // Top-Right
+      { edgeX: b.x - 12, edgeY: b.y + b.height + 12, normX: -1, normY: 0, behindX: b.x - 24, behindY: b.y + b.height - 24 }, // Bottom-Left
+      { edgeX: b.x + b.width + 12, edgeY: b.y + b.height + 12, normX: 1, normY: 0, behindX: b.x + b.width + 24, behindY: b.y + b.height - 24 }, // Bottom-Right
+    ];
+
+    for (const c of corners) {
+      const distToCorner = Math.hypot(c.behindX - pos.x, c.behindY - pos.y);
+      if (distToCorner > 240) continue;
+
+      // Behind cover must be occluded from player
+      const isBehindOccluded = !checkLineOfSight({ x: c.behindX, y: c.behindY }, playerPos, obstacles);
+      // Peek point around the corner edge must have clear sight to player
+      const isPeekClear = checkLineOfSight({ x: c.edgeX, y: c.edgeY }, playerPos, obstacles);
+
+      if (isBehindOccluded && isPeekClear) {
+        if (distToCorner < minCost) {
+          minCost = distToCorner;
+          bestSpot = {
+            x: c.behindX,
+            y: c.behindY,
+            edgeX: c.edgeX,
+            edgeY: c.edgeY,
+            normalX: c.normX,
+            normalY: c.normY,
+          };
+        }
+      }
+    }
+  }
+
+  return bestSpot;
+}
+
 // ============================================================================
 // 2. ADVANCED ENEMY AI DIRECTOR FUNCTION
 // ============================================================================
@@ -579,6 +635,14 @@ export function initBacteriaAIData(bac: EnemyBacteria, ent: WorldEntity) {
   bac.flashlightExposureTimer = bac.flashlightExposureTimer || 0;
   bac.empChargeTimer = bac.empChargeTimer || 0;
   bac.empCooldown = bac.empCooldown !== undefined ? bac.empCooldown : Math.floor(120 + Math.random() * 180);
+
+  // Wall Ambush, Corner Hiding & Proximity Weapons
+  bac.ambushTargetWall = bac.ambushTargetWall || null;
+  bac.ambushPeekTimer = bac.ambushPeekTimer || 0;
+  bac.ambushState = bac.ambushState || 'IN_COVER';
+  bac.ambushWeaponCharge = bac.ambushWeaponCharge || 0;
+  bac.ambushShotCooldown = bac.ambushShotCooldown || 0;
+  bac.isAmbushing = !!bac.isAmbushing;
 
   if (bac.isBoss) {
     bac.bossPhase = bac.bossPhase || 1;
@@ -986,6 +1050,22 @@ export function updateBacteriaAIDirector(
     }
   }
 
+  // --- TACTICAL WALL COVER & AMBUSH TRIGGER ---
+  // When player is approaching or in medium proximity (100 - 360px), duck behind wall corners to set up an ambush!
+  if (!bac.isBoss && !bac.surrendered && bac.state !== 'WALL_AMBUSH' && bac.state !== 'AMBUSH_PEEK_ATTACK' && bac.state !== 'PANIC_FLEE') {
+    if (distToPlayer >= 100 && distToPlayer <= 360 && (bac.alertness >= 25 || hasLOS || distToPlayer < 240)) {
+      const wallSpot = findBestAmbushWallCorner(pos, playerPos, obstacles);
+      if (wallSpot) {
+        bac.ambushTargetWall = wallSpot;
+        bac.state = 'WALL_AMBUSH';
+        bac.ambushState = 'IN_COVER';
+        bac.isAmbushing = true;
+        bac.ambushPeekTimer = 40 + Math.floor(Math.random() * 35);
+        bac.ambushWeaponCharge = 0;
+      }
+    }
+  }
+
   // --- Ensure full visibility and glowing clarity (Never vanish into thin air) ---
   bac.stealthAlpha = 1.0;
 
@@ -1385,6 +1465,93 @@ export function updateBacteriaAIDirector(
           ent.velocity.y = -3.2;
         } else if (distToPlayer > 320 || bac.flankTimer <= 0) {
           bac.state = 'CHASE';
+        }
+        break;
+      }
+
+      case 'WALL_AMBUSH':
+      case 'AMBUSH_PEEK_ATTACK': {
+        bac.isAmbushing = true;
+        const targetWall = bac.ambushTargetWall;
+
+        if (!targetWall || distToPlayer > 500) {
+          bac.state = 'CHASE';
+          bac.isAmbushing = false;
+          bac.ambushState = undefined;
+          break;
+        }
+
+        // Proximity Hunter Check: If player flushes the ambusher out (< 80px)
+        if (distToPlayer < 80) {
+          // Surprise Counter Pounce Leap!
+          bac.state = 'POUNCE';
+          bac.pounceTimer = 22;
+          ent.velocity.x = dirX * 9.5;
+          ent.velocity.y = -3.8;
+          bac.isAmbushing = false;
+          bac.ambushState = undefined;
+          sound.playEnemyChargeAttack();
+          break;
+        }
+
+        if (bac.ambushState === 'PEEKING') {
+          // Step outward toward corner edge to acquire firing line
+          const toEdgeX = targetWall.edgeX - pos.x;
+          const toEdgeY = targetWall.edgeY - pos.y;
+          ent.velocity.x += Math.sign(toEdgeX) * 0.28;
+          ent.velocity.y += Math.sign(toEdgeY) * 0.28;
+
+          // Lock sights and facing angle directly at player
+          bac.facingAngle = Math.atan2(dy, dx);
+          bac.facing = dirX > 0 ? 'RIGHT' : 'LEFT';
+          bac.wobbleAmount = 0.22;
+
+          // Charge weapon
+          bac.ambushWeaponCharge = (bac.ambushWeaponCharge || 0) + 1;
+
+          // Fire weapon when charged (20 frames telegraph)
+          if (bac.ambushWeaponCharge >= 20) {
+            bac.ambushWeaponCharge = 0;
+            if (onSpawnProjectile) {
+              const pSpeed = 10.5;
+              const angle = Math.atan2(dy, dx);
+              const laserCol = bac.robotGlowColor || '#FF0055';
+              onSpawnProjectile({
+                x: pos.x + Math.cos(angle) * (bac.radius + 10),
+                y: pos.y + Math.sin(angle) * (bac.radius + 10),
+                vx: Math.cos(angle) * pSpeed,
+                vy: Math.sin(angle) * pSpeed,
+                damage: 18,
+                color: laserCol,
+                isHostile: true,
+              });
+              sound.playLaserFire();
+            }
+
+            // Immediately pull back into cover!
+            bac.ambushState = 'IN_COVER';
+            bac.ambushPeekTimer = 55 + Math.floor(Math.random() * 35);
+          }
+        } else {
+          // IN_COVER: Hug wall tightly behind corner edge
+          const toCoverX = targetWall.x - pos.x;
+          const toCoverY = targetWall.y - pos.y;
+          ent.velocity.x += Math.sign(toCoverX) * 0.32;
+          ent.velocity.y += Math.sign(toCoverY) * 0.32;
+
+          // Very still, lowered silhouette
+          bac.wobbleAmount = 0.05;
+          // Look towards peek corner
+          bac.facingAngle = Math.atan2(targetWall.edgeY - pos.y, targetWall.edgeX - pos.x);
+          bac.facing = Math.cos(bac.facingAngle) >= 0 ? 'RIGHT' : 'LEFT';
+
+          bac.ambushPeekTimer = (bac.ambushPeekTimer || 45) - 1;
+          if (bac.ambushPeekTimer <= 0) {
+            // Peek out and prepare shot!
+            bac.ambushState = 'PEEKING';
+            bac.ambushWeaponCharge = 0;
+            sound.playTargetLock();
+          }
         }
         break;
       }

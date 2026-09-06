@@ -34,6 +34,7 @@ import {
   WeaponInfo,
   RadarTelemetryData,
   PlayerCombatMove,
+  DeathCause,
 } from './types';
 import { sound } from './audio';
 import { ProceduralMapManager, getStageConfig } from './proceduralMap';
@@ -45,6 +46,7 @@ import {
   renderBloodPlasmaCell,
   renderEncryptedBioCore,
   renderCyberExitPortal,
+  renderBossSpawnRift,
 } from './itemRenderers';
 import {
   updateBacteriaAIDirector,
@@ -62,6 +64,7 @@ import {
 import { gameAssets } from './assetLoader';
 import { ThreeSceneManager } from './threeSceneManager';
 import { dailyMissionManager } from './dailyMissionSystem';
+import { multiplayer } from './multiplayerManager';
 import * as THREE from 'three';
 
 /**
@@ -352,6 +355,7 @@ export class GameEngine {
 
   // Game States
   public state: GameState = 'PLAYING';
+  public lastDeathCause: DeathCause = 'COMBAT';
   public score: number = 0;
   public distance: number = 0;
   public highScore: number = 0;
@@ -501,14 +505,16 @@ export class GameEngine {
   };
   public rhythmBeatState: RhythmBeatState = this.rhythmDirector.getBeatState();
 
-  public onStateChange?: (state: GameState) => void;
+  public onStateChange?: (state: GameState, deathCause?: DeathCause) => void;
   public onScoreUpdate?: (
     score: number,
     distance: number,
     combo: number,
     multiplier: number,
     integrity: number,
-    energy: number
+    energy: number,
+    isFallingIntoAbyss?: boolean,
+    fallDepthMeters?: number
   ) => void;
   public onRhythmBeatUpdate?: (beatState: RhythmBeatState, delta: SpeedrunDeltaInfo) => void;
 
@@ -517,6 +523,8 @@ export class GameEngine {
   private lastTimestamp: number = 0;
   private entityIdCounter: number = 0;
   private mouseAimWorldPos: Vector2D | null = null;
+  public targetLockedEnemy: WorldEntity | null = null;
+  private wasTargetLockedLastFrame: boolean = false;
 
   constructor(canvas: HTMLCanvasElement, settings: GameSettings, stats: GameStats) {
     this.canvas = canvas;
@@ -536,6 +544,10 @@ export class GameEngine {
     this.initRain();
     this.resetWorld();
     this.start();
+  }
+
+  public getPlayerPosition(): { x: number; y: number } {
+    return { x: this.player.position.x, y: this.player.position.y };
   }
 
   public loadPersistentProgression(): PersistentPlayerProgression {
@@ -807,6 +819,67 @@ export class GameEngine {
     this.onProgressionUpdate?.(this.persistentProgression);
   }
 
+  /** Jump directly to a specified stage (e.g. Stage 5 for Apex Boss encounter) */
+  public setStage(stageNumber: number) {
+    this.currentStage = Math.max(1, stageNumber);
+    this.persistentProgression.currentStage = this.currentStage;
+    this.savePersistentProgression();
+
+    this.stageDefinition = getStageConfig(this.currentStage);
+    this.proceduralMap.setStage(this.currentStage);
+    this.ghostManager.setStage(this.currentStage);
+    this.rhythmDirector.resetStreak();
+
+    this.objectiveState = {
+      currentStage: this.currentStage,
+      stageName: this.stageDefinition.name,
+      subtitle: this.stageDefinition.subtitle,
+      biomeTheme: this.stageDefinition.biome,
+      totalBioCores: 3,
+      collectedBioCores: 0,
+      portalUnlocked: false,
+      portalActive: true,
+      stageTimeSeconds: 0,
+      stageEnemiesKilled: 0,
+      stageGoldEarned: 0,
+      missionTargetsTotal: this.stageDefinition.requiredMissionTargets || 2,
+      missionTargetsKilled: 0,
+      surrenderedCount: 0,
+      activeWeaponType: this.activeWeapon,
+      unlockedWeapons: Object.keys(this.weaponArsenal).filter((k) => this.weaponArsenal[k as WeaponType].unlocked) as WeaponType[],
+    };
+
+    this.stageStartTime = performance.now();
+    this.stageClearSummary = null;
+
+    // Reset player position and replenish stats
+    this.player.position = { x: 0, y: 0 };
+    this.player.velocity = { x: 0, y: 0 };
+    this.player.acceleration = { x: 0, y: 0 };
+    this.player.integrity = this.player.maxIntegrity;
+    this.player.energy = this.player.maxEnergy;
+    this.player.invulnerableTimer = 60;
+    this.player.afterimages = [];
+
+    this.camera.position = { x: 0, y: 0 };
+    this.proceduralMap.reset();
+    this.proceduralMap.updateWorld(this.player.position);
+
+    this.particles = [];
+    this.floatingTexts = [];
+    this.projectiles = [];
+    this.slashArcs = [];
+    this.flyingSplatters = [];
+
+    this.state = 'PLAYING';
+    sound.playGameStart();
+    sound.startCyberpunkMusic();
+
+    this.onStateChange?.('PLAYING');
+    this.onObjectiveUpdate?.(this.objectiveState);
+    this.onProgressionUpdate?.(this.persistentProgression);
+  }
+
   // --- 1. HIGH-DPI RETINA CALIBRATION ---
 
   /** Calibrate Canvas Resolution for 4K, Apple Retina, and AMOLED mobile screens */
@@ -863,6 +936,9 @@ export class GameEngine {
     this.player.afterimages = [];
     this.player.isFallingIntoAbyss = false;
     this.player.fallingTimer = 0;
+    this.player.fallingMaxTimer = 0;
+    this.player.fallDepthMeters = 0;
+    this.lastDeathCause = 'COMBAT';
 
     this.camera.position = { x: 0, y: 0 };
     this.camera.lookVerticalOffset = 0;
@@ -913,7 +989,8 @@ export class GameEngine {
     if (this.onStateChange) this.onStateChange(this.state);
   }
 
-  public triggerGameOver() {
+  public triggerGameOver(cause: DeathCause = 'COMBAT') {
+    this.lastDeathCause = cause;
     this.state = 'GAMEOVER';
     sound.playGameOver();
     this.screenShake = 35;
@@ -937,7 +1014,7 @@ export class GameEngine {
       localStorage.setItem('cyberrunner_stats', JSON.stringify(this.stats));
     } catch {}
 
-    if (this.onStateChange) this.onStateChange(this.state);
+    if (this.onStateChange) this.onStateChange(this.state, this.lastDeathCause);
   }
 
   // --- INPUT CONTROLS ---
@@ -988,6 +1065,22 @@ export class GameEngine {
   public handleMoveRight(active: boolean) {
     this.player.directionalStates.right = active;
     if (active) this.player.facingDirection = 'RIGHT';
+  }
+
+  /** Update pointer aim coordinates from mouse/touch and align player angle */
+  public handlePointerAim(screenX: number, screenY: number) {
+    const W = this.camera.viewportWidth || this.V_WIDTH;
+    const H = this.camera.viewportHeight || this.V_HEIGHT;
+    this.mouseAimWorldPos = {
+      x: this.camera.position.x + (screenX - W / 2),
+      y: this.camera.position.y + (screenY - H / 2),
+    };
+    const dx = this.mouseAimWorldPos.x - this.player.position.x;
+    const dy = this.mouseAimWorldPos.y - this.player.position.y;
+    if (Math.hypot(dx, dy) > 8) {
+      this.player.angle = Math.atan2(dy, dx);
+      this.player.facingDirection = dx >= 0 ? 'RIGHT' : 'LEFT';
+    }
   }
 
   /** Hypersonic Dash Trigger with Rhythm Beat Synchronization */
@@ -1424,16 +1517,40 @@ export class GameEngine {
     proCombatAI.recordPlayerMove(shootTag);
 
     const facing = this.player.facingDirection;
-    const shootAngle = facing === 'RIGHT' ? 0 : Math.PI;
-    const spawnX = this.player.position.x + (facing === 'RIGHT' ? 28 : -28);
-    const spawnY = this.player.position.y - 4;
+    let shootAngle = facing === 'RIGHT' ? 0 : Math.PI;
+
+    // Lock aim onto tracked enemy, mouse aim pos, or player facing angle
+    if (this.targetLockedEnemy && this.targetLockedEnemy.active) {
+      shootAngle = Math.atan2(
+        this.targetLockedEnemy.position.y - this.player.position.y,
+        this.targetLockedEnemy.position.x - this.player.position.x
+      );
+    } else if (this.mouseAimWorldPos) {
+      const dx = this.mouseAimWorldPos.x - this.player.position.x;
+      const dy = this.mouseAimWorldPos.y - this.player.position.y;
+      if (Math.hypot(dx, dy) > 8) {
+        shootAngle = Math.atan2(dy, dx);
+      }
+    } else if (typeof this.player.angle === 'number') {
+      shootAngle = this.player.angle;
+    }
+
+    const spawnDist = 32;
+    const spawnX = this.player.position.x + Math.cos(shootAngle) * spawnDist;
+    const spawnY = this.player.position.y + Math.sin(shootAngle) * spawnDist;
 
     const finalDamage = Math.round(currentWeapon.damage * comboEval.damageMultiplier);
 
-    // --- 1. CYBER PLASMA BLASTER ---
+    // --- 1. HEAVY SCI-FI CYBER PLASMA BEAM BLASTER ---
     if (this.activeWeapon === 'PLASMA_BLASTER') {
       sound.playLaserFire();
-      const boltSpeed = 24;
+      const boltSpeed = 34;
+      const boltColor = comboEval.isCriticalFinisher
+        ? '#FFD700'
+        : this.player.overdriveTimer > 0
+        ? '#FF00E5'
+        : '#00FFD1';
+
       this.projectiles.push({
         id: ++this.entityIdCounter,
         position: { x: spawnX, y: spawnY },
@@ -1441,17 +1558,35 @@ export class GameEngine {
           x: Math.cos(shootAngle) * boltSpeed,
           y: Math.sin(shootAngle) * boltSpeed,
         },
-        radius: comboEval.isCriticalFinisher ? 10 : 6,
-        color: comboEval.isCriticalFinisher ? '#FFD700' : this.player.overdriveTimer > 0 ? '#FF00E5' : '#00FFD1',
+        radius: comboEval.isCriticalFinisher ? 18 : 13,
+        color: boltColor,
         damage: finalDamage,
-        life: 50,
-        maxLife: 50,
+        life: 65,
+        maxLife: 65,
         trail: [],
         weaponType: 'PLASMA_BLASTER',
         isCriticalFinisher: comboEval.isCriticalFinisher,
         isMashed: comboEval.isMashed,
       });
-      this.screenShake = Math.max(this.screenShake, comboEval.isCriticalFinisher ? 10 : 4);
+
+      // Muzzle flash spark burst
+      for (let m = 0; m < 10; m++) {
+        const mAngle = shootAngle + (Math.random() - 0.5) * 0.9;
+        const mSpeed = 5 + Math.random() * 10;
+        this.particles.push({
+          position: { x: spawnX, y: spawnY },
+          velocity: { x: Math.cos(mAngle) * mSpeed, y: Math.sin(mAngle) * mSpeed },
+          size: 2.5 + Math.random() * 3.5,
+          color: Math.random() < 0.3 ? '#FFFFFF' : boltColor,
+          alpha: 1.0,
+          decay: 0.08,
+          shape: 'spark',
+          glow: true,
+        });
+      }
+
+      this.applyDirectionalScreenShake(comboEval.isCriticalFinisher ? 12 : 6, shootAngle + Math.PI);
+      this.screenShake = Math.max(this.screenShake, comboEval.isCriticalFinisher ? 14 : 7);
     }
 
     // --- 2. TRI-SPREAD SCATTER CANNON ---
@@ -1715,18 +1850,6 @@ export class GameEngine {
     if (!interacted) {
       // Small pulse if no target in range
       this.createPulseWave(this.player.position.x, this.player.position.y, 'rgba(0,255,102,0.4)');
-    }
-  }
-
-  public handlePointerAim(canvasX: number, canvasY: number) {
-    const worldX = canvasX - this.canvas.width / (2 * this.dpr) + this.camera.position.x;
-    const worldY = canvasY - this.canvas.height / (2 * this.dpr) + this.camera.position.y;
-    this.mouseAimWorldPos = { x: worldX, y: worldY };
-
-    if (worldX < this.player.position.x - 5) {
-      this.player.facingDirection = 'LEFT';
-    } else if (worldX > this.player.position.x + 5) {
-      this.player.facingDirection = 'RIGHT';
     }
   }
 
@@ -2071,10 +2194,13 @@ export class GameEngine {
 
     // 5. Update Mutated Bacteria Organisms (AI, Organic Float, & Stagger)
     this.updateBacteriaEnemies();
+    this.updateBossSpawnRifts();
 
     // 6. Update Projectiles & Slash Arcs
     this.updateProjectiles();
     this.updateSlashArcs();
+    this.updateLaserBurnMarks();
+    this.updateTargetLock();
 
     // Track exploration distance & score
     const frameDist = Math.hypot(this.player.velocity.x, this.player.velocity.y);
@@ -2136,7 +2262,41 @@ export class GameEngine {
     let nearestObj: StageObjectiveState['nearestObjective'] = undefined;
     let minObjectiveDist = Infinity;
 
-    if (this.objectiveState.collectedBioCores < 3) {
+    if (this.stageDefinition.isBossStage) {
+      // Prioritize Boss Spawn Rift or Active Boss in Boss Stage
+      for (const ent of this.proceduralMap.activeTerminals) {
+        if (!ent.active) continue;
+        if (ent.type === 'BOSS_SPAWN_RIFT') {
+          const dx = ent.position.x - this.player.position.x;
+          const dy = ent.position.y - this.player.position.y;
+          const d = Math.hypot(dx, dy);
+          if (d < minObjectiveDist) {
+            minObjectiveDist = d;
+            nearestObj = {
+              type: 'CYBER_EXIT_PORTAL',
+              position: { x: ent.position.x, y: ent.position.y },
+              distance: d,
+              angle: Math.atan2(dy, dx),
+              label: 'APEX WARP RIFT',
+            };
+          }
+        } else if (ent.type === 'MUTATED_BACTERIA' && (ent.bacteriaData?.isBoss || ent.bacteriaData?.variant === 'APEX_BOSS')) {
+          const dx = ent.position.x - this.player.position.x;
+          const dy = ent.position.y - this.player.position.y;
+          const d = Math.hypot(dx, dy);
+          if (d < minObjectiveDist) {
+            minObjectiveDist = d;
+            nearestObj = {
+              type: 'BIO_CORE',
+              position: { x: ent.position.x, y: ent.position.y },
+              distance: d,
+              angle: Math.atan2(dy, dx),
+              label: 'APEX CYBER-LORD',
+            };
+          }
+        }
+      }
+    } else if (this.objectiveState.collectedBioCores < 3) {
       // Find nearest Bio-Core
       for (const item of this.proceduralMap.activeCollectibles) {
         if (item.collected || item.type !== 'ENCRYPTED_BIO_CORE') continue;
@@ -2195,8 +2355,32 @@ export class GameEngine {
         this.comboCount,
         this.comboMultiplier,
         Math.floor(this.player.integrity),
-        Math.floor(this.player.energy)
+        Math.floor(this.player.energy),
+        !!this.player.isFallingIntoAbyss,
+        this.player.fallDepthMeters || 0
       );
+    }
+
+    // 12. Multiplayer Co-Op Real-Time State Broadcast (WebRTC P2P)
+    if (multiplayer.isConnected()) {
+      multiplayer.broadcastPlayerState({
+        x: this.player.position.x,
+        y: this.player.position.y,
+        vx: this.player.velocity.x,
+        vy: this.player.velocity.y,
+        angle: this.player.angle,
+        health: this.player.integrity,
+        isCrouching: !!this.player.isCrouching,
+        isCovered: !!this.player.isCovered,
+        isSlashing: this.player.slashTimer > 0,
+        isShooting: this.player.shootTimer > 0,
+        isDashing: this.player.dashTimer > 0,
+        isFallingIntoAbyss: !!this.player.isFallingIntoAbyss,
+        activeWeapon: this.activeWeapon,
+        characterHue: multiplayer.localPlayerHue,
+        score: Math.floor(this.score),
+        kills: this.objectiveState.stageEnemiesKilled || 0,
+      });
     }
   }
 
@@ -2372,6 +2556,173 @@ export class GameEngine {
     const rand = Math.random();
     const dropType: CollectibleType = rand < 0.12 ? 'WEAPON_TECH_PART' : rand < 0.65 ? 'BLOOD_PLASMA_CELL' : 'METALLIC_GOLD';
     this.spawnDrop(ent.position.x, ent.position.y, dropType);
+  }
+
+  private bossWarningCooldown: number = 0;
+
+  /**
+   * Monitor Boss Spawn Dimensional Warp Rift
+   * If Hero (Player) or ally is standing in the rift perimeter (< 110px),
+   * halt boss emergence to prevent collision overlap and broadcast warning telemetry.
+   * When clear, countdown ticks down and summons the Apex Boss with epic arrival FX.
+   */
+  private updateBossSpawnRifts() {
+    if (this.bossWarningCooldown > 0) {
+      this.bossWarningCooldown--;
+    }
+
+    let activeRiftStatus: StageObjectiveState['bossSpawnStatus'] = null;
+
+    for (const ent of this.proceduralMap.activeTerminals) {
+      if (!ent.active || ent.type !== 'BOSS_SPAWN_RIFT' || !ent.bossRiftData) continue;
+      const rift = ent.bossRiftData;
+      if (rift.spawned) continue;
+
+      const dx = ent.position.x - this.player.position.x;
+      const dy = ent.position.y - this.player.position.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Check if Hero/Player is standing directly inside the boss spawn clearance perimeter (radius 110px)
+      const isHeroInsideSpawnPerimeter = dist < rift.radius;
+
+      // Check if any remote multiplayer player is inside
+      let isRemotePlayerInside = false;
+      if (multiplayer.isConnected()) {
+        for (const rp of multiplayer.remotePlayers.values()) {
+          const rdx = ent.position.x - rp.x;
+          const rdy = ent.position.y - rp.y;
+          if (Math.hypot(rdx, rdy) < rift.radius) {
+            isRemotePlayerInside = true;
+            break;
+          }
+        }
+      }
+
+      const isObstructed = isHeroInsideSpawnPerimeter || isRemotePlayerInside;
+      rift.isObstructed = isObstructed;
+
+      // When player approaches within arena detection range (480px)
+      if (dist < 480) {
+        activeRiftStatus = {
+          pending: true,
+          spawnPoint: { x: ent.position.x, y: ent.position.y },
+          distanceToPlayer: dist,
+          isObstructed,
+          countdown: rift.countdown,
+          maxCountdown: rift.maxCountdown,
+        };
+
+        if (isObstructed) {
+          // Pause / freeze the emergence timer!
+          rift.charging = false;
+
+          // Sound alert & floating warning prompt directly over the hero
+          if (this.bossWarningCooldown <= 0) {
+            this.bossWarningCooldown = 50;
+            sound.playAmbushAlert();
+            const lang = this.settings.language || 'MY';
+            const warnText = lang === 'MY'
+              ? '⚠️ သတိပေးချက်: သင်သည် Boss ထွက်မည့်နေရာတွင် ရပ်နေပါသည်! နောက်ဆုတ်ပေးပါ!'
+              : '⚠️ BOSS SPAWN OBSTRUCTED: Step back from Rift!';
+            this.addFloatingText(this.player.position.x, this.player.position.y - 50, warnText, '#FF0055');
+          }
+
+          // Spawn obstruction hazard particles
+          if (Math.random() < 0.3) {
+            const a = Math.random() * Math.PI * 2;
+            this.particles.push({
+              position: {
+                x: ent.position.x + Math.cos(a) * rift.radius,
+                y: ent.position.y + Math.sin(a) * rift.radius,
+              },
+              velocity: { x: (Math.random() - 0.5) * 2, y: -Math.random() * 2 },
+              size: 3,
+              color: '#FF0055',
+              alpha: 1,
+              decay: 0.05,
+              shape: 'spark',
+              glow: true,
+            });
+          }
+        } else {
+          // Spawn point is clear -> Resume or run emergence countdown!
+          rift.charging = true;
+          rift.countdown--;
+
+          // Anticipation roar at beginning of countdown
+          if (rift.countdown === rift.maxCountdown - 1) {
+            sound.playBossRoar();
+            this.addFloatingText(
+              ent.position.x,
+              ent.position.y - 70,
+              '⚡ WARP STABILIZED: BOSS BREACH INITIATED!',
+              '#00FFD1'
+            );
+          }
+
+          // Convergence suction particles
+          if (Math.random() < 0.6) {
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 70 + Math.random() * 60;
+            this.particles.push({
+              position: {
+                x: ent.position.x + Math.cos(angle) * rad,
+                y: ent.position.y + Math.sin(angle) * rad,
+              },
+              velocity: {
+                x: -Math.cos(angle) * 4,
+                y: -Math.sin(angle) * 4,
+              },
+              size: 3.5,
+              color: Math.random() < 0.5 ? '#00FFD1' : '#FF00E5',
+              alpha: 1,
+              decay: 0.04,
+              shape: 'circle',
+              glow: true,
+            });
+          }
+
+          // Emergence countdown completed -> Boss materializes!
+          if (rift.countdown <= 0) {
+            rift.spawned = true;
+            ent.active = false;
+
+            // Activate pending boss entity via proceduralMap helper
+            this.proceduralMap.activatePendingBoss(rift.bossEntityId);
+
+            // Dramatic emergence FX
+            this.screenShake = 24;
+            this.flashAlpha = 0.7;
+            sound.playBossRoar();
+            const lang = this.settings.language || 'MY';
+            const emergeBanner = lang === 'MY'
+              ? '👑 လူဆိုးဗိုလ် APEX TITAN ထွက်ပေါ်လာပါပြီ! အပြင်းအထန် တိုက်ခိုက်ပါ!'
+              : '👑 APEX CYBER-LORD TITAN EMERGES! PREPARE FOR BATTLE!';
+            this.addFloatingText(ent.position.x, ent.position.y - 85, emergeBanner, '#FF0055');
+
+            // Radial shockwave burst
+            for (let p = 0; p < 50; p++) {
+              const a = (p * Math.PI * 2) / 50;
+              const spd = 4 + Math.random() * 8;
+              this.particles.push({
+                position: { x: ent.position.x, y: ent.position.y },
+                velocity: { x: Math.cos(a) * spd, y: Math.sin(a) * spd },
+                size: 4 + Math.random() * 3,
+                color: p % 2 === 0 ? '#FF0055' : '#FFE600',
+                alpha: 1,
+                decay: 0.025,
+                shape: 'spark',
+                glow: true,
+              });
+            }
+
+            activeRiftStatus = null;
+          }
+        }
+      }
+    }
+
+    this.objectiveState.bossSpawnStatus = activeRiftStatus;
   }
 
   private updateBacteriaEnemies() {
@@ -2662,7 +3013,51 @@ export class GameEngine {
 
       // Store trail points
       bolt.trail.push({ x: bolt.position.x, y: bolt.position.y });
-      if (bolt.trail.length > 6) bolt.trail.shift();
+      if (bolt.trail.length > 8) bolt.trail.shift();
+
+      // 2.5 ENVIRONMENT IMPACT LOGIC: SOLID OBSTACLE & WALL COLLISION DETECTION
+      let hitObstacle = false;
+      for (const obs of this.proceduralMap.activeObstacles) {
+        if (!obs.active) continue;
+        const b = obs.bounds;
+        if (
+          bolt.position.x + bolt.radius >= b.x &&
+          bolt.position.x - bolt.radius <= b.x + b.width &&
+          bolt.position.y + bolt.radius >= b.y &&
+          bolt.position.y - bolt.radius <= b.y + b.height
+        ) {
+          hitObstacle = true;
+          // Determine impact normal
+          const leftD = Math.abs((bolt.position.x + bolt.radius) - b.x);
+          const rightD = Math.abs((bolt.position.x - bolt.radius) - (b.x + b.width));
+          const topD = Math.abs((bolt.position.y + bolt.radius) - b.y);
+          const bottomD = Math.abs((bolt.position.y - bolt.radius) - (b.y + b.height));
+          const minD = Math.min(leftD, rightD, topD, bottomD);
+
+          let nx = 0;
+          let ny = 0;
+          if (minD === leftD) nx = -1;
+          else if (minD === rightD) nx = 1;
+          else if (minD === topD) ny = -1;
+          else ny = 1;
+
+          const impactX = Math.max(b.x, Math.min(b.x + b.width, bolt.position.x));
+          const impactY = Math.max(b.y, Math.min(b.y + b.height, bolt.position.y));
+
+          sound.playLaserWallImpact();
+          this.triggerLaserWallImpactFX(impactX, impactY, nx, ny, bolt.color, bolt.isCriticalFinisher);
+          this.addLaserBurnMark(impactX, impactY, nx, ny, bolt.color, 'WALL');
+          this.applyDirectionalScreenShake(bolt.isCriticalFinisher ? 12 : 5, Math.atan2(ny, nx));
+
+          if (bolt.isVortex) {
+            this.createExplosion(impactX, impactY, '#9D00FF', 35);
+            this.createPulseWave(impactX, impactY, '#9D00FF');
+          }
+          this.projectiles.splice(i, 1);
+          break;
+        }
+      }
+      if (hitObstacle) continue;
 
       // 3. ENEMY HOSTILE PROJECTILE VS PLAYER
       if (bolt.isEnemy) {
@@ -2746,9 +3141,18 @@ export class GameEngine {
           }
         }
 
-        if (hit || bolt.life <= 0) {
+        if (hit) {
           if (bolt.isVortex) {
-            // Singularity collapse implosion burst
+            this.createExplosion(bolt.position.x, bolt.position.y, '#9D00FF', 35);
+            this.createPulseWave(bolt.position.x, bolt.position.y, '#9D00FF');
+          }
+          this.projectiles.splice(i, 1);
+        } else if (bolt.life <= 0) {
+          // Floor Impact (Laser reaches terminal range / strikes ground)
+          sound.playLaserWallImpact();
+          this.triggerLaserFloorImpactFX(bolt.position.x, bolt.position.y, bolt.color, bolt.isCriticalFinisher);
+          this.addLaserBurnMark(bolt.position.x, bolt.position.y, 0, -1, bolt.color, 'FLOOR');
+          if (bolt.isVortex) {
             this.createExplosion(bolt.position.x, bolt.position.y, '#9D00FF', 35);
             this.createPulseWave(bolt.position.x, bolt.position.y, '#9D00FF');
           }
@@ -2756,6 +3160,193 @@ export class GameEngine {
         }
       }
     }
+  }
+
+  /** Generates bright starburst neon particle effect (မီးပွားပွင့်ခြင်း) at wall impact points */
+  public triggerLaserWallImpactFX(
+    x: number,
+    y: number,
+    normalX: number,
+    normalY: number,
+    color: string,
+    isCrit: boolean = false
+  ) {
+    const baseAngle = Math.atan2(normalY, normalX);
+    const count = isCrit ? 30 : 22;
+
+    for (let s = 0; s < count; s++) {
+      const sparkAngle = baseAngle + (Math.random() - 0.5) * Math.PI * 0.85;
+      const speed = 6 + Math.random() * 16;
+      const isWhiteHot = Math.random() < 0.35;
+
+      this.particles.push({
+        position: { x, y },
+        velocity: {
+          x: Math.cos(sparkAngle) * speed,
+          y: Math.sin(sparkAngle) * speed,
+        },
+        size: 2.5 + Math.random() * 4.5,
+        color: isWhiteHot ? '#FFFFFF' : color,
+        alpha: 1.0,
+        decay: 0.035 + Math.random() * 0.045,
+        shape: 'spark',
+        glow: true,
+      });
+    }
+
+    this.particles.push({
+      position: { x, y },
+      velocity: { x: 0, y: 0 },
+      size: 10,
+      color: color,
+      alpha: 0.95,
+      decay: 0.08,
+      shape: 'ring',
+    });
+
+    for (let e = 0; e < 8; e++) {
+      const emberAngle = baseAngle + (Math.random() - 0.5) * Math.PI * 0.6;
+      const speed = 2 + Math.random() * 6;
+      this.particles.push({
+        position: { x, y },
+        velocity: {
+          x: Math.cos(emberAngle) * speed,
+          y: Math.sin(emberAngle) * speed + 1.2,
+        },
+        size: 1.5 + Math.random() * 2.5,
+        color: '#FFB900',
+        alpha: 0.9,
+        decay: 0.025,
+        shape: 'circle',
+      });
+    }
+  }
+
+  /** Generates bright starburst neon particle effect (မီးပွားပွင့်ခြင်း) at floor impact points */
+  public triggerLaserFloorImpactFX(
+    x: number,
+    y: number,
+    color: string,
+    isCrit: boolean = false
+  ) {
+    const count = isCrit ? 28 : 20;
+
+    for (let s = 0; s < count; s++) {
+      const sparkAngle = Math.random() * Math.PI * 2;
+      const speed = 5 + Math.random() * 13;
+      const isWhiteHot = Math.random() < 0.3;
+
+      this.particles.push({
+        position: { x, y },
+        velocity: {
+          x: Math.cos(sparkAngle) * speed,
+          y: Math.sin(sparkAngle) * speed,
+        },
+        size: 2.2 + Math.random() * 3.8,
+        color: isWhiteHot ? '#FFFFFF' : color,
+        alpha: 1.0,
+        decay: 0.04 + Math.random() * 0.04,
+        shape: 'spark',
+        glow: true,
+      });
+    }
+
+    this.particles.push({
+      position: { x, y },
+      velocity: { x: 0, y: 0 },
+      size: 8,
+      color: color,
+      alpha: 0.9,
+      decay: 0.07,
+      shape: 'ring',
+    });
+  }
+
+  /** Add persistent glowing laser burn mark on walls or floors */
+  public addLaserBurnMark(
+    x: number,
+    y: number,
+    normalX: number,
+    normalY: number,
+    color: string,
+    surface: 'WALL' | 'FLOOR' | 'OBSTACLE'
+  ) {
+    const spokeCount = 7 + Math.floor(Math.random() * 5);
+    const spokes: Array<{ angle: number; length: number; width: number }> = [];
+    for (let i = 0; i < spokeCount; i++) {
+      spokes.push({
+        angle: (i / spokeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4,
+        length: 8 + Math.random() * 14,
+        width: 1.5 + Math.random() * 2.0,
+      });
+    }
+
+    const mark: LaserBurnMark = {
+      id: ++this.entityIdCounter,
+      x,
+      y,
+      radius: surface === 'FLOOR' ? 14 + Math.random() * 6 : 10 + Math.random() * 6,
+      color: color,
+      glowColor: color === '#FF00E5' ? '#FF66F0' : color === '#FFD700' ? '#FFEE55' : '#88FFFF',
+      alpha: 1.0,
+      life: 240, // Lasts ~4 seconds
+      maxLife: 240,
+      normalX,
+      normalY,
+      spokes,
+      surface,
+      createdTimestamp: performance.now(),
+    };
+
+    this.laserBurnMarks.push(mark);
+    if (this.laserBurnMarks.length > 60) {
+      this.laserBurnMarks.shift();
+    }
+  }
+
+  /** Update laser burn marks lifetime and cooling fade */
+  public updateLaserBurnMarks() {
+    for (let i = this.laserBurnMarks.length - 1; i >= 0; i--) {
+      const m = this.laserBurnMarks[i];
+      m.life--;
+      m.alpha = Math.min(1.0, m.life / 60);
+      if (m.life <= 0) {
+        this.laserBurnMarks.splice(i, 1);
+      }
+    }
+  }
+
+  /** Dynamic Cyberpunk Crosshair & Reticle Target Locking */
+  private updateTargetLock() {
+    let bestTarget: WorldEntity | null = null;
+    let minAimAngleDiff = 0.42; // ~24 degree aim cone
+    let bestDist = 550;
+
+    for (const ent of this.proceduralMap.activeTerminals) {
+      if (!ent.active || ent.type !== 'MUTATED_BACTERIA' || !ent.bacteriaData) continue;
+      if (ent.bacteriaData.health <= 0) continue;
+
+      const dx = ent.position.x - this.player.position.x;
+      const dy = ent.position.y - this.player.position.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > bestDist) continue;
+
+      const enemyAngle = Math.atan2(dy, dx);
+      let angleDiff = Math.abs(enemyAngle - this.player.angle);
+      while (angleDiff > Math.PI) angleDiff = Math.abs(angleDiff - Math.PI * 2);
+
+      if (angleDiff < minAimAngleDiff) {
+        minAimAngleDiff = angleDiff;
+        bestDist = dist;
+        bestTarget = ent;
+      }
+    }
+
+    if (bestTarget && !this.wasTargetLockedLastFrame) {
+      sound.playTargetLock();
+    }
+    this.wasTargetLockedLastFrame = !!bestTarget;
+    this.targetLockedEnemy = bestTarget;
   }
 
   private updateSlashArcs() {
@@ -3005,30 +3596,33 @@ export class GameEngine {
   /** Triggered when the hero steps on a broken floor / chasm void without dashing */
   public triggerPlayerFallIntoVoid() {
     if (this.player.isFallingIntoAbyss || this.state !== 'PLAYING') return;
+    this.lastDeathCause = 'PITFALL_ABYSS';
     this.player.isFallingIntoAbyss = true;
-    this.player.fallingTimer = 40;
+    this.player.fallingMaxTimer = 75;
+    this.player.fallingTimer = 75;
+    this.player.fallDepthMeters = 0;
     this.player.actionState = 'FALLING_INTO_VOID';
-    this.player.velocity.x *= 0.1;
-    this.player.velocity.y *= 0.1;
+    this.player.velocity.x *= 0.05;
+    this.player.velocity.y *= 0.05;
 
     sound.playPitFall();
-    this.triggerHitstop(20);
-    this.applyDirectionalScreenShake(28, Math.PI / 2);
-    this.flashAlpha = 0.8;
+    this.triggerHitstop(16);
+    this.applyDirectionalScreenShake(34, Math.PI / 2);
+    this.flashAlpha = 0.85;
     this.flashColor = '#FF0055';
 
     // Spawn falling void sparks and abyss debris
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const spd = 2 + Math.random() * 6;
+      const spd = 2 + Math.random() * 7;
       this.particles.push({
         position: { x: this.player.position.x, y: this.player.position.y },
-        velocity: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
-        size: 3 + Math.random() * 4,
+        velocity: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd - 3 },
+        size: 3 + Math.random() * 5,
         color: Math.random() < 0.5 ? '#FF0055' : '#00FFD1',
         alpha: 1.0,
-        decay: 0.04,
-        shape: 'spark',
+        decay: 0.03,
+        shape: Math.random() < 0.3 ? 'spark' : 'circle',
       });
     }
 
@@ -3045,30 +3639,40 @@ export class GameEngine {
     if (!this.player.fallingTimer) this.player.fallingTimer = 0;
     this.player.fallingTimer--;
 
-    // Spin and slow down in 2D / 3D
-    this.player.angle += 0.35;
-    this.player.velocity.x *= 0.8;
-    this.player.velocity.y *= 0.8;
+    const maxTimer = this.player.fallingMaxTimer || 75;
+    const progress = Math.min(1.0, (maxTimer - this.player.fallingTimer) / maxTimer);
 
-    // Emit void particles
-    if (Math.random() < 0.6) {
+    // Exponential depth plunge calculation: plunges down past 2,600 meters
+    this.player.fallDepthMeters = Math.floor(Math.pow(progress, 1.85) * 2600);
+
+    // Rapid tumbling spin and inward void suction
+    this.player.angle += 0.45;
+    this.player.velocity.x *= 0.7;
+    this.player.velocity.y *= 0.7;
+
+    // Upward-rushing particles indicating the hero is falling downward at extreme velocity
+    for (let i = 0; i < 3; i++) {
+      const spd = 4 + Math.random() * 8;
       this.particles.push({
         position: {
-          x: this.player.position.x + (Math.random() - 0.5) * 20,
-          y: this.player.position.y + (Math.random() - 0.5) * 20,
+          x: this.player.position.x + (Math.random() - 0.5) * 40,
+          y: this.player.position.y + (Math.random() - 0.5) * 40,
         },
-        velocity: { x: 0, y: 0 },
+        velocity: {
+          x: (Math.random() - 0.5) * 2,
+          y: -spd, // Upward rushing relative velocity
+        },
         size: 2 + Math.random() * 4,
-        color: '#FF0055',
+        color: Math.random() < 0.6 ? '#FF0055' : '#7000FF',
         alpha: 0.9,
-        decay: 0.08,
-        shape: 'circle',
+        decay: 0.05,
+        shape: 'spark',
       });
     }
 
     if (this.player.fallingTimer <= 0) {
       this.player.integrity = 0;
-      this.triggerGameOver();
+      this.triggerGameOver('PITFALL_ABYSS');
     }
   }
 
@@ -3215,7 +3819,12 @@ export class GameEngine {
         this.screenShakeAngle,
         this.flashAlpha,
         this.flashColor,
-        this.proceduralMap.activeChunks
+        this.proceduralMap.activeChunks,
+        this.projectiles,
+        this.laserBurnMarks,
+        this.targetLockedEnemy,
+        multiplayer.remotePlayers,
+        multiplayer.tacticalPings
       );
     } catch (err) {
       console.error('3D WebGL render pipeline error:', err);
@@ -3637,6 +4246,13 @@ export class GameEngine {
           this.objectiveState.portalUnlocked,
           this.objectiveState.collectedBioCores,
           this.objectiveState.totalBioCores
+        );
+      } else if (ent.type === 'BOSS_SPAWN_RIFT') {
+        renderBossSpawnRift(
+          ctx,
+          ent,
+          this.player.position,
+          this.settings.language || 'MY'
         );
       }
     }
@@ -4619,6 +5235,18 @@ export class GameEngine {
           ctx.beginPath();
           ctx.arc(px, py, 4.5, 0, Math.PI * 2);
           ctx.fill();
+        } else if (ent.type === 'BOSS_SPAWN_RIFT') {
+          const isObs = ent.bossRiftData?.isObstructed;
+          const pulse = 5.5 + Math.sin(Date.now() * (isObs ? 0.02 : 0.008)) * 2;
+          ctx.fillStyle = isObs ? '#FF0055' : '#00FFD1';
+          ctx.shadowColor = isObs ? '#FF0055' : '#00FFD1';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(px, py, pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
         } else if (ent.type === 'MUTATED_BACTERIA' && ent.bacteriaData) {
           const bac = ent.bacteriaData;
 
@@ -4853,6 +5481,12 @@ export class GameEngine {
           alertness: e.bacteriaData?.alertness || 0,
           state: e.bacteriaData?.state,
           canStealthKill: !!e.bacteriaData?.canStealthKill,
+          isAmbushing: !!e.bacteriaData?.isAmbushing || e.bacteriaData?.state === 'WALL_AMBUSH' || e.bacteriaData?.state === 'AMBUSH_PEEK_ATTACK',
+          ambushState: e.bacteriaData?.ambushState,
+          cyberMechaType: e.bacteriaData?.cyberMechaType,
+          robotEyeStyle: e.bacteriaData?.robotEyeStyle,
+          robotArmStyle: e.bacteriaData?.robotArmStyle,
+          robotGlowColor: e.bacteriaData?.robotGlowColor,
         })),
       obstacles: this.proceduralMap.activeObstacles.map((obs) => ({
         x: obs.bounds.x,

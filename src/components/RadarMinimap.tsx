@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { RadarTelemetryData } from '../types';
+import { multiplayer } from '../multiplayerManager';
 
 interface RadarMinimapProps {
   getTelemetry?: () => RadarTelemetryData | null;
@@ -249,6 +250,36 @@ export const RadarMinimap: React.FC<RadarMinimapProps> = ({
                   ctx.shadowBlur = 0;
                 }
 
+                // 1b. Wall Ambush Cover & Peek Attack Sniper Indicator
+                if (ent.isAmbushing || ent.state === 'WALL_AMBUSH' || ent.state === 'AMBUSH_PEEK_ATTACK') {
+                  const pulse = 5 + Math.sin(Date.now() * 0.02) * 2;
+                  ctx.save();
+                  ctx.strokeStyle = '#FF0055';
+                  ctx.lineWidth = 1.6;
+                  ctx.shadowColor = '#FF0055';
+                  ctx.shadowBlur = 10;
+                  ctx.strokeRect(px - pulse, py - pulse, pulse * 2, pulse * 2);
+                  // Crosshair tick marks
+                  ctx.beginPath();
+                  ctx.moveTo(px - pulse - 2, py);
+                  ctx.lineTo(px + pulse + 2, py);
+                  ctx.moveTo(px, py - pulse - 2);
+                  ctx.lineTo(px, py + pulse + 2);
+                  ctx.stroke();
+
+                  // Laser sight aiming line when peeking from behind wall
+                  if (ent.ambushState === 'PEEKING') {
+                    ctx.setLineDash([3, 2]);
+                    ctx.strokeStyle = 'rgba(255, 0, 85, 0.85)';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(centerX, centerY);
+                    ctx.stroke();
+                  }
+                  ctx.restore();
+                }
+
                 // 2. Surrendered Enemy (White Pip)
                 if (ent.surrendered) {
                   ctx.fillStyle = '#FFFFFF';
@@ -343,6 +374,33 @@ export const RadarMinimap: React.FC<RadarMinimapProps> = ({
           centerY + Math.sin(facing) * 9
         );
         ctx.stroke();
+
+        // 6d. Multiplayer Squad Teammates
+        const radarRange = data.range || 850;
+        for (const remote of multiplayer.remotePlayers.values()) {
+          const dx = remote.x - data.player.x;
+          const dy = remote.y - data.player.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= radarRange) {
+            const rx = centerX + (dx / radarRange) * (radius - 8);
+            const ry = centerY + (dy / radarRange) * (radius - 8);
+            const hue = remote.characterHue ?? 140;
+            ctx.fillStyle = `hsl(${hue}, 100%, 55%)`;
+            ctx.shadowColor = `hsl(${hue}, 100%, 55%)`;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Teammate heading arrow
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(rx, ry);
+            ctx.lineTo(rx + Math.cos(remote.angle) * 6, ry + Math.sin(remote.angle) * 6);
+            ctx.stroke();
+          }
+        }
       } else {
         // Fallback Default Player Pip
         ctx.fillStyle = '#00FFD1';

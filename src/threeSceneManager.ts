@@ -26,6 +26,10 @@ import {
   SpeedrunDeltaInfo,
   RhythmBeatState,
   GridMapChunk,
+  Projectile,
+  LaserBurnMark,
+  RemotePlayerState,
+  TacticalPingMessage,
 } from './types';
 
 // ============================================================================
@@ -108,6 +112,22 @@ export class ThreeSceneManager {
   private playerPlasmaFlameRight: THREE.Mesh;
   private playerHaloRing1: THREE.Mesh;
   private playerHaloRing2: THREE.Mesh;
+
+  // --- MULTIPLAYER SQUAD 3D RIG & WEBRTC MESHES ---
+  public remotePlayersGroup: THREE.Group = new THREE.Group();
+  private remotePlayerMeshMap: Map<
+    string,
+    {
+      group: THREE.Group;
+      leftArm: THREE.Group;
+      rightArm: THREE.Group;
+      leftLeg: THREE.Group;
+      rightLeg: THREE.Group;
+      katanaBlade: THREE.Mesh;
+      neonMaterial: THREE.MeshBasicMaterial;
+      hue: number;
+    }
+  > = new Map();
 
   // Dynamic Neon Glow Motion Trails System (Katana & Limbs)
   private readonly MAX_TRAIL_POINTS = 18;
@@ -303,6 +323,11 @@ export class ThreeSceneManager {
   // Dynamic Golden Point Lights
   private dynamicGoldenLights: THREE.PointLight[] = [];
   private readonly MAX_GOLDEN_LIGHTS = 8;
+
+  // 3D Thick Heavy Sci-Fi Plasma Projectiles & Laser Burn Mark Systems
+  private projectileMeshMap: Map<number, THREE.Group> = new Map();
+  private laserBurnMeshMap: Map<number, THREE.Group> = new Map();
+  private projectilePointLight!: THREE.PointLight;
 
   // Shared High-End Materials with High Emissive Bloom Triggers
   private materials = {
@@ -714,6 +739,33 @@ export class ThreeSceneManager {
     }),
     cyborgOcularLaserGold: new THREE.MeshBasicMaterial({
       color: 0xffd700,
+    }),
+    cyborgOcularLaserGreen: new THREE.MeshBasicMaterial({
+      color: 0x39ff14,
+    }),
+    cyborgOcularLaserPurple: new THREE.MeshBasicMaterial({
+      color: 0x9d00ff,
+    }),
+    mechaLaserSightBeam: new THREE.MeshBasicMaterial({
+      color: 0xff0044,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+    mechaCarbonChassis: new THREE.MeshStandardMaterial({
+      color: 0x0f1118,
+      roughness: 0.22,
+      metalness: 0.85,
+      emissive: 0x050810,
+      emissiveIntensity: 0.2,
+    }),
+    mechaBrassHazard: new THREE.MeshStandardMaterial({
+      color: 0xffa000,
+      roughness: 0.25,
+      metalness: 0.7,
+      emissive: 0x442200,
+      emissiveIntensity: 0.3,
     }),
     cyborgConduitWire: new THREE.MeshBasicMaterial({
       color: 0x00ffd1,
@@ -2241,6 +2293,11 @@ export class ThreeSceneManager {
     this.portalPointLight = new THREE.PointLight(0x00ff66, 3.2, 700, 1.2);
     this.portalPointLight.position.set(0, 60, -1000);
     this.scene.add(this.portalPointLight);
+
+    // 8. Projectile Real-Time Dynamic Point Light (Volumetric plasma illumination)
+    this.projectilePointLight = new THREE.PointLight(0x00ffd1, 0, 420, 1.8);
+    this.projectilePointLight.position.set(0, 30, 0);
+    this.scene.add(this.projectilePointLight);
   }
 
   // --- 1.5 HIGH-FIDELITY VOLUMETRIC FOG & ATMOSPHERIC MIST SYSTEM ---
@@ -3603,6 +3660,7 @@ export class ThreeSceneManager {
     this.playerGroup.add(this.playerShieldMesh);
 
     this.scene.add(this.playerGroup);
+    this.scene.add(this.remotePlayersGroup);
   }
 
   // --- 5. 3D PERSONAL BEST GHOST WIREFRAME ---
@@ -3911,7 +3969,12 @@ export class ThreeSceneManager {
     screenShakeAngle: number,
     flashAlpha: number,
     flashColor: string,
-    chunks: GridMapChunk[] = []
+    chunks: GridMapChunk[] = [],
+    projectiles: Projectile[] = [],
+    laserBurnMarks: LaserBurnMark[] = [],
+    targetLockedEnemy: WorldEntity | null = null,
+    remotePlayers: Map<string, RemotePlayerState> = new Map(),
+    tacticalPings: TacticalPingMessage[] = []
   ) {
     this.animTick += 0.032;
 
@@ -3923,6 +3986,9 @@ export class ThreeSceneManager {
 
     // 2. Update 3D Cyber Warrior Player Model & Animations
     this.update3DPlayer(player, rhythmState);
+
+    // 2.5 Update 3D Multiplayer Squad (WebRTC Co-op)
+    this.update3DRemotePlayers(remotePlayers);
 
     // 3. Update 3D Speedrun Ghost Silhouette
     this.update3DGhost(speedrunDelta);
@@ -3947,6 +4013,10 @@ export class ThreeSceneManager {
     // 8. Update 3D Laser Hazard Beams
     this.update3DLasers(lasers);
 
+    // 8.5 Update 3D Thick Heavy Sci-Fi Plasma Projectiles & Laser Burn Scars
+    this.update3DProjectiles(projectiles);
+    this.update3DLaserBurns(laserBurnMarks);
+
     // 9. Update 3D Environment Props (Cyber Trees, Streetlights, Golden Billboards)
     this.update3DProps(props);
     this.updateGoldenPointLights(player, props);
@@ -3966,7 +4036,7 @@ export class ThreeSceneManager {
     // 13. Render via UnrealBloomPass EffectComposer Pipeline
     this.composer.render();
 
-    // 14. Render High-DPI 2D Overlay Pass (Floating Damage Texts, Flash, CRT, Metronome, Radar)
+    // 14. Render High-DPI 2D Overlay Pass (Floating Damage Texts, Flash, CRT, Metronome, Radar, Crosshair, Plasma Bloom)
     this.render2DOverlay(
       player,
       entities,
@@ -3976,7 +4046,13 @@ export class ThreeSceneManager {
       speedrunDelta,
       flashAlpha,
       flashColor,
-      settings
+      settings,
+      projectiles,
+      laserBurnMarks,
+      targetLockedEnemy,
+      camera2D,
+      remotePlayers,
+      tacticalPings
     );
   }
 
@@ -4060,28 +4136,44 @@ export class ThreeSceneManager {
       this.cameraInitialized = true;
     }
 
-    // Dynamic FOV for Over-The-Shoulder High-Angle Clarity
-    const targetFov = isDashing ? 62 : isCovered ? 52 : isCrouching ? 54 : 56;
-    this.camera.fov += (targetFov - this.camera.fov) * 0.08;
+    const isFalling = !!player.isFallingIntoAbyss || player.actionState === 'FALLING_INTO_VOID';
+    const maxTimer = player.fallingMaxTimer || 75;
+    const fallProg = isFalling ? Math.min(1.0, (maxTimer - (player.fallingTimer || 0)) / maxTimer) : 0;
+
+    // Dynamic FOV for Over-The-Shoulder High-Angle Clarity + Vertigo Abyss Expansion
+    const targetFov = isFalling
+      ? (62 + fallProg * 26)
+      : isDashing ? 62 : isCovered ? 52 : isCrouching ? 54 : 56;
+    this.camera.fov += (targetFov - this.camera.fov) * (isFalling ? 0.22 : 0.08);
     this.camera.updateProjectionMatrix();
 
-    // Target Camera Position (High Angle elevated above player's head, behind in +Z, right-shoulder offset)
-    const targetCamX = px + shoulderX + shakeX + lookaheadX * 0.15;
-    const targetCamY = Math.max(70, camHeight + shakeY);
-    const targetCamZ = pz + camDist + shakeZ + lookaheadZ * 0.15;
+    // Target Camera Position (High Angle or Over-The-Chasm-Hole Peering Downward)
+    const targetCamX = isFalling
+      ? px + (Math.random() - 0.5) * fallProg * 8
+      : px + shoulderX + shakeX + lookaheadX * 0.15;
+    const targetCamY = isFalling
+      ? Math.max(45, camHeight * (1 - fallProg * 0.35)) + shakeY
+      : Math.max(70, camHeight + shakeY);
+    const targetCamZ = isFalling
+      ? pz + camDist * (1 - fallProg * 0.6)
+      : pz + camDist + shakeZ + lookaheadZ * 0.15;
 
     // Smooth Camera Position Lag (Lerp Damping)
-    const camPosLerp = isDashing ? 0.18 : isCrouching ? 0.12 : 0.14;
+    const camPosLerp = isFalling ? 0.24 : isDashing ? 0.18 : isCrouching ? 0.12 : 0.14;
     this.smoothedCamPos.x += (targetCamX - this.smoothedCamPos.x) * camPosLerp;
     this.smoothedCamPos.y += (targetCamY - this.smoothedCamPos.y) * camPosLerp;
     this.smoothedCamPos.z += (targetCamZ - this.smoothedCamPos.z) * camPosLerp;
 
-    // Target Look-At Point (Tilted downward towards the ground and forward path ahead)
-    const targetLookX = px + shoulderX * 0.25 + lookaheadX * 0.45 + shakeX * 0.3;
-    const targetLookY = 12 + (isCrouching ? -4 : 0);
-    const targetLookZ = pz - forwardLeadDist + lookaheadZ * 0.45 + shakeZ * 0.3;
+    // Target Look-At Point (Tilted downward towards ground or directly plunging down into abyss)
+    const targetLookX = isFalling ? px : px + shoulderX * 0.25 + lookaheadX * 0.45 + shakeX * 0.3;
+    const targetLookY = isFalling
+      ? (12 - Math.pow(fallProg, 1.8) * 380)
+      : 12 + (isCrouching ? -4 : 0);
+    const targetLookZ = isFalling
+      ? pz
+      : pz - forwardLeadDist + lookaheadZ * 0.45 + shakeZ * 0.3;
 
-    const lookLerpFactor = 0.16;
+    const lookLerpFactor = isFalling ? 0.25 : 0.16;
     this.smoothedLookAt.x += (targetLookX - this.smoothedLookAt.x) * lookLerpFactor;
     this.smoothedLookAt.y += (targetLookY - this.smoothedLookAt.y) * lookLerpFactor;
     this.smoothedLookAt.z += (targetLookZ - this.smoothedLookAt.z) * lookLerpFactor;
@@ -4311,9 +4403,10 @@ export class ThreeSceneManager {
 
     // Lower player body when crouching / taking cover or plunging into bottomless abyss pit
     const isFalling = !!player.isFallingIntoAbyss || player.actionState === 'FALLING_INTO_VOID';
-    const fallProgress = isFalling ? Math.min(1.0, (40 - (player.fallingTimer || 0)) / 40) : 0;
+    const maxTimer = player.fallingMaxTimer || 75;
+    const fallProgress = isFalling ? Math.min(1.0, (maxTimer - (player.fallingTimer || 0)) / maxTimer) : 0;
     const playerBaseY = isFalling
-      ? -fallProgress * 160
+      ? -Math.pow(fallProgress, 1.85) * 550
       : isCrouching
       ? -6
       : 0;
@@ -4321,14 +4414,14 @@ export class ThreeSceneManager {
     this.playerGroup.position.set(px, playerBaseY, pz);
 
     // Dynamic scale when falling down into the void
-    const fallScale = isFalling ? Math.max(0.08, 1 - fallProgress * 0.9) : 1.0;
+    const fallScale = isFalling ? Math.max(0.01, Math.pow(1 - fallProgress * 0.98, 2)) : 1.0;
     this.playerGroup.scale.set(fallScale, fallScale, fallScale);
 
     // Player Rotation: 3D Y-axis aligns with 2D Movement Angle + tumble spin on void fall
     this.playerGroup.rotation.y = -player.angle + Math.PI / 2;
     if (isFalling) {
-      this.playerGroup.rotation.x = fallProgress * Math.PI * 4;
-      this.playerGroup.rotation.z = fallProgress * Math.PI * 3;
+      this.playerGroup.rotation.x = fallProgress * Math.PI * 8;
+      this.playerGroup.rotation.z = fallProgress * Math.PI * 6;
     } else {
       this.playerGroup.rotation.x = 0;
       this.playerGroup.rotation.z = 0;
@@ -4509,6 +4602,148 @@ export class ThreeSceneManager {
 
     // Update Dynamic Neon Motion Trails on Sword and Cybernetic Limbs
     this.updatePlayerNeonTrails(player, neonColor);
+  }
+
+  // --- MULTIPLAYER SQUAD REMOTE PLAYERS 3D SYNCHRONIZATION ---
+  private update3DRemotePlayers(remotePlayers: Map<string, RemotePlayerState>) {
+    // 1. Remove disconnected players
+    for (const [id, entry] of this.remotePlayerMeshMap.entries()) {
+      if (!remotePlayers.has(id)) {
+        this.remotePlayersGroup.remove(entry.group);
+        this.remotePlayerMeshMap.delete(id);
+      }
+    }
+
+    // 2. Update or spawn remote players
+    for (const [id, remote] of remotePlayers.entries()) {
+      let entry = this.remotePlayerMeshMap.get(id);
+
+      if (!entry) {
+        // Build streamlined 3D Cyber Warrior Rig
+        const group = new THREE.Group();
+        const hue = remote.characterHue ?? 140;
+        const neonColor = new THREE.Color(`hsl(${hue}, 100%, 55%)`);
+        const neonMat = new THREE.MeshBasicMaterial({ color: neonColor });
+
+        // Torso
+        const torso = new THREE.Mesh(
+          new THREE.CylinderGeometry(7, 9, 22, 10),
+          this.materials.playerCarbonArmor
+        );
+        torso.position.y = 22;
+        group.add(torso);
+
+        // Chest neon core
+        const chest = new THREE.Mesh(
+          new THREE.BoxGeometry(10, 10, 5),
+          neonMat
+        );
+        chest.position.set(0, 2, 4);
+        torso.add(chest);
+
+        // Helmet & Visor
+        const head = new THREE.Group();
+        head.position.y = 15;
+        const helmet = new THREE.Mesh(
+          new THREE.SphereGeometry(6, 12, 10),
+          this.materials.playerCarbonArmor
+        );
+        head.add(helmet);
+        const visor = new THREE.Mesh(
+          new THREE.BoxGeometry(8, 3, 3),
+          neonMat
+        );
+        visor.position.set(0, 0, 4.5);
+        head.add(visor);
+        torso.add(head);
+
+        // Limbs
+        const armGeo = new THREE.CylinderGeometry(2, 2.4, 14, 8);
+        const legGeo = new THREE.CylinderGeometry(2.5, 3.2, 18, 8);
+
+        const leftArm = new THREE.Group();
+        leftArm.position.set(-9, 8, 0);
+        const lArmMesh = new THREE.Mesh(armGeo, this.materials.playerSecondaryPlates);
+        lArmMesh.position.y = -6;
+        leftArm.add(lArmMesh);
+        torso.add(leftArm);
+
+        const rightArm = new THREE.Group();
+        rightArm.position.set(9, 8, 0);
+        const rArmMesh = new THREE.Mesh(armGeo, this.materials.playerSecondaryPlates);
+        rArmMesh.position.y = -6;
+        rightArm.add(rArmMesh);
+        torso.add(rightArm);
+
+        // Katana Blade
+        const katanaGeo = new THREE.BoxGeometry(0.8, 26, 2.5);
+        const katanaBlade = new THREE.Mesh(katanaGeo, neonMat);
+        katanaBlade.position.set(0, -10, 8);
+        katanaBlade.rotation.x = Math.PI / 4;
+        rightArm.add(katanaBlade);
+
+        const leftLeg = new THREE.Group();
+        leftLeg.position.set(-4.5, -11, 0);
+        const lLegMesh = new THREE.Mesh(legGeo, this.materials.playerSecondaryPlates);
+        lLegMesh.position.y = -8;
+        leftLeg.add(lLegMesh);
+        torso.add(leftLeg);
+
+        const rightLeg = new THREE.Group();
+        rightLeg.position.set(4.5, -11, 0);
+        const rLegMesh = new THREE.Mesh(legGeo, this.materials.playerSecondaryPlates);
+        rLegMesh.position.y = -8;
+        rightLeg.add(rLegMesh);
+        torso.add(rightLeg);
+
+        this.remotePlayersGroup.add(group);
+        entry = {
+          group,
+          leftArm,
+          rightArm,
+          leftLeg,
+          rightLeg,
+          katanaBlade,
+          neonMaterial: neonMat,
+          hue,
+        };
+        this.remotePlayerMeshMap.set(id, entry);
+      }
+
+      // Smooth Position Interpolation
+      const targetX = remote.x * this.WORLD_SCALE;
+      const targetZ = remote.y * this.WORLD_SCALE;
+      entry.group.position.x += (targetX - entry.group.position.x) * 0.45;
+      entry.group.position.z += (targetZ - entry.group.position.z) * 0.45;
+
+      const isFalling = !!remote.isFallingIntoAbyss;
+      if (isFalling) {
+        entry.group.position.y -= 15;
+        entry.group.rotation.x += 0.2;
+        entry.group.rotation.z += 0.15;
+        entry.group.scale.multiplyScalar(0.96);
+      } else {
+        entry.group.position.y = remote.isCrouching ? -6 : 0;
+        entry.group.rotation.x = 0;
+        entry.group.rotation.z = 0;
+        entry.group.scale.set(1, 1, 1);
+        entry.group.rotation.y = -remote.angle + Math.PI / 2;
+      }
+
+      // Stride animation
+      const speed = Math.hypot(remote.vx || 0, remote.vy || 0);
+      const isMoving = speed > 0.3;
+      const stride = isMoving ? Math.sin(this.animTick * 20) * 0.7 : 0;
+      entry.leftArm.rotation.x = stride;
+      entry.rightArm.rotation.x = -stride;
+      entry.leftLeg.rotation.x = -stride * 1.1;
+      entry.rightLeg.rotation.x = stride * 1.1;
+
+      // Slashing motion
+      if (remote.isSlashing) {
+        entry.rightArm.rotation.x = -Math.PI / 2 + Math.sin(this.animTick * 35) * 0.8;
+      }
+    }
   }
 
   // --- 3D SPEEDRUN GHOST ---
@@ -5027,24 +5262,133 @@ export class ThreeSceneManager {
     const eyeGroup = new THREE.Group();
     eyeGroup.name = 'eyeGroup';
 
-    // Machined Titanium Ocular Socket
-    const socketMesh = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.42, rad * 0.48, rad * 0.3, 16), this.materials.cyborgTitaniumPlate);
-    socketMesh.rotateX(Math.PI / 2);
-    socketMesh.position.set(0, rad * 0.25, rad * 0.96);
-    eyeGroup.add(socketMesh);
+    // Select eye material based on robot glow color or variant
+    let activeEyeMat = eyeMat;
+    if (b.robotGlowColor === '#39ff14') activeEyeMat = this.materials.cyborgOcularLaserGreen;
+    else if (b.robotGlowColor === '#9d00ff') activeEyeMat = this.materials.cyborgOcularLaserPurple;
+    else if (b.robotGlowColor === '#00ffd1' || b.robotGlowColor === '#00f0ff') activeEyeMat = this.materials.cyborgOcularLaserCyan;
+    else if (b.robotGlowColor === '#ffe600' || b.robotGlowColor === '#ff9900') activeEyeMat = this.materials.cyborgOcularLaserGold;
+    else if (b.robotGlowColor === '#ff0055') activeEyeMat = this.materials.cyborgOcularLaserRed;
 
-    // Glowing Concentric Camera Iris Diode
-    const irisMesh = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.26, rad * 0.26, rad * 0.32, 16), eyeMat);
-    irisMesh.rotateX(Math.PI / 2);
-    irisMesh.position.set(0, rad * 0.25, rad * 1.02);
-    eyeGroup.add(irisMesh);
+    const eyeStyle = b.robotEyeStyle || 'CYCLOPS_BEAM';
 
-    // Laser Aperture Pin
-    const pinMesh = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.08, 8, 8), this.materials.katanaBladeCore);
-    pinMesh.position.set(0, rad * 0.25, rad * 1.2);
-    eyeGroup.add(pinMesh);
+    if (eyeStyle === 'VISOR_SCANNER') {
+      // Sleek Cybernetic Visor Bar
+      const visorBarMesh = new THREE.Mesh(new THREE.BoxGeometry(rad * 0.9, rad * 0.22, rad * 0.28), this.materials.cyborgTitaniumPlate);
+      visorBarMesh.position.set(0, rad * 0.25, rad * 0.98);
+      eyeGroup.add(visorBarMesh);
+
+      const scannerDiode = new THREE.Mesh(new THREE.BoxGeometry(rad * 0.75, rad * 0.1, rad * 0.32), activeEyeMat);
+      scannerDiode.position.set(0, rad * 0.25, rad * 1.02);
+      eyeGroup.add(scannerDiode);
+    } else if (eyeStyle === 'DUAL_DIODE') {
+      // Twin Binocular Cybernetic Diodes
+      for (const offset of [-rad * 0.22, rad * 0.22]) {
+        const dualSocket = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.18, rad * 0.22, rad * 0.26, 12), this.materials.cyborgTitaniumPlate);
+        dualSocket.rotateX(Math.PI / 2);
+        dualSocket.position.set(offset, rad * 0.25, rad * 0.98);
+        eyeGroup.add(dualSocket);
+
+        const dualIris = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.11, rad * 0.11, rad * 0.28, 12), activeEyeMat);
+        dualIris.rotateX(Math.PI / 2);
+        dualIris.position.set(offset, rad * 0.25, rad * 1.04);
+        eyeGroup.add(dualIris);
+      }
+    } else if (eyeStyle === 'COMPOUND_HEX') {
+      // Multi-Faceted Hexagonal Sensor Cluster
+      for (let h = 0; h < 5; h++) {
+        const hAngle = (h / 5) * Math.PI * 2;
+        const hRad = h === 0 ? 0 : rad * 0.22;
+        const hx = Math.cos(hAngle) * hRad;
+        const hy = Math.sin(hAngle) * hRad + rad * 0.25;
+        const hexMesh = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.1, rad * 0.12, rad * 0.24, 6), activeEyeMat);
+        hexMesh.rotateX(Math.PI / 2);
+        hexMesh.position.set(hx, hy, rad * 0.98);
+        eyeGroup.add(hexMesh);
+      }
+    } else {
+      // CYCLOPS_BEAM: Machined Titanium Ocular Socket
+      const socketMesh = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.42, rad * 0.48, rad * 0.3, 16), this.materials.cyborgTitaniumPlate);
+      socketMesh.rotateX(Math.PI / 2);
+      socketMesh.position.set(0, rad * 0.25, rad * 0.96);
+      eyeGroup.add(socketMesh);
+
+      const irisMesh = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.26, rad * 0.26, rad * 0.32, 16), activeEyeMat);
+      irisMesh.rotateX(Math.PI / 2);
+      irisMesh.position.set(0, rad * 0.25, rad * 1.02);
+      eyeGroup.add(irisMesh);
+
+      const pinMesh = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.08, 8, 8), this.materials.katanaBladeCore);
+      pinMesh.position.set(0, rad * 0.25, rad * 1.2);
+      eyeGroup.add(pinMesh);
+    }
 
     group.add(eyeGroup);
+
+    // 5b. Procedural Mecha Weapon Arms
+    const armStyle = b.robotArmStyle || 'PLASMA_CANNON';
+    const armsGroup = new THREE.Group();
+    armsGroup.name = 'mechaArmsGroup';
+
+    for (const side of [-1, 1]) {
+      const armMount = new THREE.Group();
+      armMount.position.set(side * rad * 1.15, rad * 0.1, rad * 0.2);
+
+      // Piston Shoulder Socket
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.22, 10, 10), this.materials.cyborgPistonHydraulic);
+      armMount.add(shoulder);
+
+      if (armStyle === 'PLASMA_CANNON') {
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.12, rad * 0.15, rad * 0.9, 8), this.materials.cyborgTitaniumPlate);
+        barrel.rotateX(Math.PI / 2);
+        barrel.position.set(0, 0, rad * 0.45);
+        armMount.add(barrel);
+
+        const muzzleGlow = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.08, rad * 0.08, rad * 0.15, 8), activeEyeMat);
+        muzzleGlow.rotateX(Math.PI / 2);
+        muzzleGlow.position.set(0, 0, rad * 0.92);
+        armMount.add(muzzleGlow);
+      } else if (armStyle === 'ROTARY_BLADE') {
+        const bladeGeo = new THREE.CylinderGeometry(rad * 0.38, rad * 0.38, rad * 0.06, 8);
+        bladeGeo.rotateZ(Math.PI / 2);
+        const bladeMesh = new THREE.Mesh(bladeGeo, this.materials.katanaBladeCore);
+        bladeMesh.name = `rotaryBlade_${side}`;
+        bladeMesh.position.set(0, 0, rad * 0.4);
+        armMount.add(bladeMesh);
+      } else if (armStyle === 'HYDRAULIC_CLAW') {
+        for (const clawPincer of [-0.3, 0.3]) {
+          const claw = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.09, rad * 0.5, 4), this.materials.cyborgTitaniumPlate);
+          claw.rotateX(Math.PI / 2);
+          claw.rotateZ(clawPincer);
+          claw.position.set(clawPincer * rad * 0.3, 0, rad * 0.45);
+          armMount.add(claw);
+        }
+      } else {
+        // NEEDLE_LASER
+        const needle = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.05, rad * 0.07, rad * 1.1, 6), this.materials.cyborgTitaniumPlate);
+        needle.rotateX(Math.PI / 2);
+        needle.position.set(0, 0, rad * 0.55);
+        armMount.add(needle);
+
+        const tip = new THREE.Mesh(new THREE.OctahedronGeometry(rad * 0.1, 0), activeEyeMat);
+        tip.position.set(0, 0, rad * 1.12);
+        armMount.add(tip);
+      }
+
+      armsGroup.add(armMount);
+    }
+    group.add(armsGroup);
+
+    // 5c. Wall Ambush Tactical Laser Sight Targeting Beam
+    const ambushLaserSight = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.9, 0.9, 280, 6),
+      this.materials.mechaLaserSightBeam
+    );
+    ambushLaserSight.name = 'ambushLaserSight';
+    ambushLaserSight.visible = false;
+    ambushLaserSight.rotateX(Math.PI / 2);
+    ambushLaserSight.position.set(0, rad * 0.25, rad + 140);
+    group.add(ambushLaserSight);
 
     // 6. Hydraulic Cyber Spine & Glowing Conduits
     const spineGroup = new THREE.Group();
@@ -5416,6 +5760,39 @@ export class ThreeSceneManager {
           bossHalo.rotation.x = Math.sin(this.animTick * 3) * 0.2;
         }
 
+        // Animate Rotary Cutter Blades
+        const bladeL = group.getObjectByName('rotaryBlade_-1');
+        if (bladeL) bladeL.rotation.x += 0.35;
+        const bladeR = group.getObjectByName('rotaryBlade_1');
+        if (bladeR) bladeR.rotation.x += 0.35;
+
+        // Animate Wall Ambush Sniper Laser Sight
+        const ambushLaserSight = group.getObjectByName('ambushLaserSight') as THREE.Mesh | undefined;
+        if (ambushLaserSight) {
+          if (b.ambushState === 'PEEKING' || b.state === 'AMBUSH_PEEK_ATTACK') {
+            ambushLaserSight.visible = true;
+            if (this.playerGroup) {
+              const dx = this.playerGroup.position.x - bx;
+              const dz = this.playerGroup.position.z - bz;
+              const angle = Math.atan2(dx, dz);
+              ambushLaserSight.rotation.y = angle - group.rotation.y;
+              const chargeRatio = Math.min(1.0, (b.ambushWeaponCharge || 0) / 20);
+              const sightMat = ambushLaserSight.material as THREE.MeshBasicMaterial;
+              sightMat.opacity = 0.4 + chargeRatio * 0.55 + Math.sin(this.animTick * 25) * 0.1;
+              if (b.robotGlowColor) {
+                sightMat.color.set(b.robotGlowColor);
+              }
+            }
+          } else {
+            ambushLaserSight.visible = false;
+          }
+        }
+
+        // Crouch lower to floor when hugging wall cover
+        if (b.ambushState === 'IN_COVER') {
+          group.position.y = Math.max(6, rad * 0.62);
+        }
+
         // --- 3D TACTICAL ENEMY SIGHT-CONE RENDERING ON FACTORY FLOOR ---
         if (!b.surrendered && b.state !== 'SURRENDER' && b.state !== 'STAGGER') {
           const vRange = b.visionRange || 280;
@@ -5447,6 +5824,9 @@ export class ThreeSceneManager {
           const coneMat = coneMesh.material as THREE.MeshBasicMaterial;
           if (b.ghostPhase === 'VANISHED') {
             coneMesh.visible = false;
+          } else if (b.state === 'WALL_AMBUSH' || b.state === 'AMBUSH_PEEK_ATTACK' || b.isAmbushing) {
+            coneMat.color.setHex(0xff0055);
+            coneMat.opacity = 0.48 + Math.sin(this.animTick * 22) * 0.18;
           } else if (b.state === 'PANIC_FLEE') {
             coneMat.color.setHex(0xbf00ff);
             coneMat.opacity = 0.45 + Math.sin(this.animTick * 18) * 0.15;
@@ -6262,6 +6642,196 @@ export class ThreeSceneManager {
     }
   }
 
+  // --- 8.5 THICK HEAVY SCI-FI PLASMA LASER BEAMS (3D VOLUMETRIC HIGH-BLOOM) ---
+  private update3DProjectiles(projectiles: Projectile[]) {
+    const activeIds = new Set<number>();
+    let leadProjectile: Projectile | null = null;
+
+    for (const bolt of projectiles) {
+      activeIds.add(bolt.id);
+      if (!leadProjectile || !bolt.isEnemy) {
+        leadProjectile = bolt;
+      }
+
+      let group = this.projectileMeshMap.get(bolt.id);
+      const bx = bolt.position.x * this.WORLD_SCALE;
+      const bz = bolt.position.y * this.WORLD_SCALE;
+      const angle = Math.atan2(bolt.velocity.y, bolt.velocity.x);
+      const isCrit = !!bolt.isCriticalFinisher;
+      const colorHex = bolt.color === '#FF00E5' ? 0xff00e5 : bolt.color === '#FFD700' ? 0xffd700 : 0x00ffd1;
+
+      if (!group) {
+        group = new THREE.Group();
+
+        // 1. Superheated Pure White Center Core Beam
+        const coreGeo = new THREE.CylinderGeometry(bolt.radius * 0.45, bolt.radius * 0.45, 52, 10);
+        coreGeo.rotateZ(Math.PI / 2);
+        const coreMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        group.add(coreMesh);
+
+        // 2. Thick Volumetric Plasma Bloom Outer Sheath (Intense glowing cylinder)
+        const glowGeo = new THREE.CylinderGeometry(bolt.radius * 1.35, bolt.radius * 1.35, 48, 12);
+        glowGeo.rotateZ(Math.PI / 2);
+        const glowMat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 0.88,
+          blending: THREE.AdditiveBlending,
+        });
+        const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+        group.add(glowMesh);
+
+        // 3. Forward Plasma Shockhead (Aerodynamic superheated droplet)
+        const headGeo = new THREE.SphereGeometry(bolt.radius * 0.95, 10, 10);
+        const headMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+        });
+        const headMesh = new THREE.Mesh(headGeo, headMat);
+        headMesh.position.set(24, 0, 0);
+        group.add(headMesh);
+
+        // 4. Trailing Ion Acceleration Ring (Spinning plasma halo)
+        const ringGeo = new THREE.TorusGeometry(bolt.radius * 1.25, 2.2, 8, 16);
+        ringGeo.rotateY(Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.set(-14, 0, 0);
+        ringMesh.name = 'ionRing';
+        group.add(ringMesh);
+
+        this.scene.add(group);
+        this.projectileMeshMap.set(bolt.id, group);
+      }
+
+      // Spin trailing ion ring
+      const ring = group.getObjectByName('ionRing');
+      if (ring) {
+        ring.rotation.x += 0.25;
+      }
+
+      group.position.set(bx, 16, bz);
+      group.rotation.y = -angle;
+      const scaleMul = isCrit ? 1.4 : 1.0;
+      group.scale.set(scaleMul, scaleMul, scaleMul);
+    }
+
+    // Dynamic Real-Time Volumetric Light illumination from lead projectile
+    if (leadProjectile) {
+      this.projectilePointLight.position.set(
+        leadProjectile.position.x * this.WORLD_SCALE,
+        22,
+        leadProjectile.position.y * this.WORLD_SCALE
+      );
+      this.projectilePointLight.color.set(leadProjectile.color);
+      this.projectilePointLight.intensity = leadProjectile.isCriticalFinisher ? 3.8 : 2.4;
+    } else {
+      this.projectilePointLight.intensity = 0;
+    }
+
+    // Clean up expired projectile 3D meshes
+    for (const [id, group] of this.projectileMeshMap.entries()) {
+      if (!activeIds.has(id)) {
+        this.scene.remove(group);
+        this.projectileMeshMap.delete(id);
+      }
+    }
+  }
+
+  // --- 8.6 PERSISTENT 3D LASER BURN MARKS (WALL & FLOOR IMPACT SCARS) ---
+  private update3DLaserBurns(burns: LaserBurnMark[]) {
+    const activeIds = new Set<number>();
+
+    for (const mark of burns) {
+      activeIds.add(mark.id);
+      let group = this.laserBurnMeshMap.get(mark.id);
+      const mx = mark.x * this.WORLD_SCALE;
+      const mz = mark.y * this.WORLD_SCALE;
+      const colorHex = mark.color === '#FF00E5' ? 0xff00e5 : mark.color === '#FFD700' ? 0xffd700 : 0x00ffd1;
+
+      if (!group) {
+        group = new THREE.Group();
+
+        // Molten White-Hot Core Disc
+        const coreGeo = new THREE.CircleGeometry(mark.radius * 0.38, 12);
+        coreGeo.rotateX(-Math.PI / 2);
+        const coreMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        coreMesh.name = 'core';
+        group.add(coreMesh);
+
+        // Superheated Neon Glow Outer Fringe
+        const glowGeo = new THREE.RingGeometry(mark.radius * 0.35, mark.radius * 1.1, 16);
+        glowGeo.rotateX(-Math.PI / 2);
+        const glowMat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 0.8,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+        glowMesh.name = 'glow';
+        group.add(glowMesh);
+
+        // Charred Black Slag Outer Ring
+        const slagGeo = new THREE.RingGeometry(mark.radius * 0.95, mark.radius * 1.45, 14);
+        slagGeo.rotateX(-Math.PI / 2);
+        const slagMat = new THREE.MeshBasicMaterial({
+          color: 0x020408,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+        });
+        const slagMesh = new THREE.Mesh(slagGeo, slagMat);
+        slagMesh.name = 'slag';
+        group.add(slagMesh);
+
+        this.scene.add(group);
+        this.laserBurnMeshMap.set(mark.id, group);
+      }
+
+      // Height position: wall decals sit at wall mid-level, floor decals sit flush on floor
+      const my = mark.surface === 'WALL' ? 14 : 0.45;
+      group.position.set(mx, my, mz);
+
+      // Fade out as mark cools down
+      const core = group.getObjectByName('core') as THREE.Mesh;
+      if (core && core.material instanceof THREE.MeshBasicMaterial) {
+        core.material.opacity = Math.max(0, mark.alpha * 0.95);
+      }
+      const glow = group.getObjectByName('glow') as THREE.Mesh;
+      if (glow && glow.material instanceof THREE.MeshBasicMaterial) {
+        glow.material.opacity = Math.max(0, mark.alpha * 0.8);
+      }
+      const slag = group.getObjectByName('slag') as THREE.Mesh;
+      if (slag && slag.material instanceof THREE.MeshBasicMaterial) {
+        slag.material.opacity = Math.max(0, mark.alpha * 0.65);
+      }
+    }
+
+    // Clean up expired burn mark 3D meshes
+    for (const [id, group] of this.laserBurnMeshMap.entries()) {
+      if (!activeIds.has(id)) {
+        this.scene.remove(group);
+        this.laserBurnMeshMap.delete(id);
+      }
+    }
+  }
+
   // --- 3D EXPLOSION BLAST CRATER HAZARDS: HIGH-PERFORMANCE COMBAT IMPACT ZONE ---
   private update3DPits(chunks: GridMapChunk[] = [], player: Player) {
     const px = player.position.x;
@@ -6830,7 +7400,7 @@ export class ThreeSceneManager {
     this.sporeGeo.attributes.position.needsUpdate = true;
   }
 
-  // --- 2D OVERLAY RENDERING (DAMAGE TEXTS, FLASH, METRONOME, MINIMAP) ---
+  // --- 2D OVERLAY RENDERING (DAMAGE TEXTS, FLASH, METRONOME, MINIMAP, CROSSHAIR) ---
   private render2DOverlay(
     player: Player,
     entities: WorldEntity[],
@@ -6840,7 +7410,13 @@ export class ThreeSceneManager {
     speedrunDelta: SpeedrunDeltaInfo,
     flashAlpha: number,
     flashColor: string,
-    settings: GameSettings
+    settings: GameSettings,
+    projectiles: Projectile[] = [],
+    laserBurnMarks: LaserBurnMark[] = [],
+    targetLockedEnemy: WorldEntity | null = null,
+    camera2D?: Camera2D,
+    remotePlayers: Map<string, RemotePlayerState> = new Map(),
+    tacticalPings: TacticalPingMessage[] = []
   ) {
     const ctx = this.overlayCtx;
     const dpr = this.renderer.getPixelRatio() || 1;
@@ -6852,6 +7428,13 @@ export class ThreeSceneManager {
 
     ctx.save();
     ctx.scale(dpr, dpr);
+
+    // 0. Render 2D Laser Burn Mark Decals & Scorches
+    if (camera2D) {
+      this.renderLaserBurnMarks2D(ctx, W, H, laserBurnMarks, camera2D);
+      // 0.5 Render Thick Heavy Sci-Fi Plasma Laser Beams (Glow sheath & white-hot core)
+      this.renderThickPlasmaLasers2D(ctx, W, H, projectiles, camera2D);
+    }
 
     // --- PRO AI EXECUTIONER VIGNETTE & COGNITIVE PRESSURE OVERLAY ---
     const pressure = proCombatAI.cognitivePressureIntensity;
@@ -6982,58 +7565,84 @@ export class ThreeSceneManager {
     // 6. BOTTOMLESS CHASM VOID FALL ALERT & VORTEX DESCENT
     if (player.isFallingIntoAbyss || player.actionState === 'FALLING_INTO_VOID') {
       ctx.save();
-      const fallProg = Math.min(1.0, (40 - (player.fallingTimer || 0)) / 40);
+      const maxTimer = player.fallingMaxTimer || 75;
+      const fallProg = Math.min(1.0, (maxTimer - (player.fallingTimer || 0)) / maxTimer);
 
-      // Expanding deep red-purple abyss singularity vortex
+      // Deep pitch-black abyss singularity vortex narrowing down
       const vortexGrad = ctx.createRadialGradient(
         W / 2,
         H / 2,
-        Math.max(10, Math.min(W, H) * 0.05),
+        Math.max(5, Math.min(W, H) * (0.02 + (1 - fallProg) * 0.15)),
         W / 2,
         H / 2,
-        Math.max(W, H) * (0.3 + fallProg * 0.5)
+        Math.max(W, H) * (0.2 + fallProg * 0.6)
       );
-      vortexGrad.addColorStop(0, `rgba(255, 0, 85, ${0.4 * (1 - fallProg)})`);
-      vortexGrad.addColorStop(0.6, `rgba(18, 0, 36, ${0.75 * fallProg})`);
-      vortexGrad.addColorStop(1.0, `rgba(0, 0, 0, ${0.92 * fallProg})`);
+      vortexGrad.addColorStop(0, 'rgba(0, 0, 0, 0.98)');
+      vortexGrad.addColorStop(0.35, `rgba(18, 0, 36, ${0.85 * fallProg + 0.1})`);
+      vortexGrad.addColorStop(0.7, `rgba(255, 0, 85, ${0.45 * Math.sin(fallProg * Math.PI)})`);
+      vortexGrad.addColorStop(1.0, `rgba(0, 0, 0, ${0.94 * fallProg + 0.05})`);
       ctx.fillStyle = vortexGrad;
       ctx.fillRect(0, 0, W, H);
 
+      // Dynamic High-Speed Vertical Wind Tunnel Streaks (Rushing upwards)
+      const streakCount = Math.floor(25 + fallProg * 45);
+      ctx.lineWidth = 1.5;
+      for (let s = 0; s < streakCount; s++) {
+        const seed = (s * 137.5 + this.animTick * 60) % 1000;
+        const sx = (seed * 19.3) % W;
+        const speed = (20 + (s % 15) * 10) * (1 + fallProg * 2.5);
+        const sy = H - ((this.animTick * 1200 + s * 45) % (H + 200));
+        const len = 30 + fallProg * 120;
+        const streakAlpha = (0.2 + (s % 5) * 0.15) * Math.min(1, fallProg * 2);
+
+        const grad = ctx.createLinearGradient(sx, sy, sx, sy - len);
+        grad.addColorStop(0, `rgba(255, 0, 85, ${streakAlpha})`);
+        grad.addColorStop(0.7, `rgba(0, 255, 209, ${streakAlpha * 0.8})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.strokeStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, sy - len);
+        ctx.stroke();
+      }
+
       // Responsive Dynamic Font Scaling for Mobile & Desktop
-      const titleFontSize = Math.max(10, Math.min(16, Math.floor(W * 0.032)));
-      const subFontSize = Math.max(8.5, Math.min(11, Math.floor(W * 0.022)));
+      const titleFontSize = Math.max(11, Math.min(17, Math.floor(W * 0.034)));
+      const subFontSize = Math.max(9, Math.min(12, Math.floor(W * 0.024)));
       const isCompactMobile = W < 500;
 
       // Holographic Warning Badge Frame
-      const boxW = Math.min(W * 0.88, 480);
-      const boxH = isCompactMobile ? 48 : 56;
+      const boxW = Math.min(W * 0.9, 520);
+      const boxH = isCompactMobile ? 54 : 64;
       const boxX = (W - boxW) / 2;
       const boxY = H / 2 - boxH / 2;
 
-      ctx.fillStyle = 'rgba(6, 2, 14, 0.88)';
-      ctx.strokeStyle = 'rgba(255, 0, 85, 0.7)';
-      ctx.lineWidth = 1.5;
+      ctx.fillStyle = 'rgba(6, 2, 14, 0.92)';
+      ctx.strokeStyle = '#FF0055';
+      ctx.lineWidth = 2;
       ctx.shadowColor = '#FF0055';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 18;
       ctx.strokeRect(boxX, boxY, boxW, boxH);
       ctx.fillRect(boxX, boxY, boxW, boxH);
 
-      // Warning text with mobile line fit
+      // Warning text
       ctx.font = `900 ${titleFontSize}px "Orbitron", monospace`;
       ctx.fillStyle = '#FF0055';
       ctx.textAlign = 'center';
       ctx.shadowColor = '#FF0055';
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 16;
       const titleText = isCompactMobile
-        ? '⚠️ CRITICAL PITFALL // CHASM COLLAPSE'
+        ? '⚠️ PITFALL DETECTED // FREEFALLING'
         : '⚠️ CRITICAL PITFALL // BOTTOMLESS CHASM COLLAPSE';
-      ctx.fillText(titleText, W / 2, boxY + (isCompactMobile ? 18 : 22));
+      ctx.fillText(titleText, W / 2, boxY + (isCompactMobile ? 20 : 25));
 
+      // Depth telemetry
+      const depthVal = player.fallDepthMeters || Math.floor(Math.pow(fallProg, 1.85) * 2600);
       ctx.font = `bold ${subFontSize}px "Orbitron", monospace`;
       ctx.fillStyle = '#00FFD1';
       ctx.shadowColor = '#00FFD1';
-      ctx.shadowBlur = 8;
-      ctx.fillText('RESTORING RUN SYSTEM STATE...', W / 2, boxY + (isCompactMobile ? 36 : 42));
+      ctx.shadowBlur = 10;
+      ctx.fillText(`DEPTH: -${depthVal}M // TERMINAL VELOCITY IMMINENT`, W / 2, boxY + (isCompactMobile ? 40 : 48));
       ctx.restore();
     }
 
@@ -7093,10 +7702,114 @@ export class ThreeSceneManager {
     ctx.lineTo(W - 12, H - 12 - bracketLen);
     ctx.stroke();
 
+    // Dynamic Responsive Cyberpunk Crosshair / Reticle at exact center of screen
+    this.renderDynamicCrosshair2D(ctx, W, H, targetLockedEnemy, entities, player);
+
+    // Render Multiplayer Remote Player Hologram Badges & Tactical Pings
+    this.renderRemotePlayerHUD(ctx, W, H, remotePlayers, tacticalPings);
+
     ctx.restore();
 
     // Complete CSS scaling block
     ctx.restore();
+  }
+
+  // --- MULTIPLAYER SQUAD HUD & TACTICAL PING OVERLAYS ---
+  private renderRemotePlayerHUD(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    remotePlayers: Map<string, RemotePlayerState>,
+    tacticalPings: TacticalPingMessage[] = []
+  ) {
+    if (remotePlayers.size === 0 && tacticalPings.length === 0) return;
+
+    // 1. Render Remote Teammate Name & HP Hologram Bar
+    for (const remote of remotePlayers.values()) {
+      const pos3D = new THREE.Vector3(
+        remote.x * this.WORLD_SCALE,
+        36,
+        remote.y * this.WORLD_SCALE
+      );
+      pos3D.project(this.camera);
+
+      // Skip if behind camera lens
+      if (pos3D.z > 1.0) continue;
+
+      const sx = ((pos3D.x + 1) * 0.5) * W;
+      const sy = ((-pos3D.y + 1) * 0.5) * H;
+
+      // Skip if off screen
+      if (sx < -60 || sx > W + 60 || sy < -40 || sy > H + 40) continue;
+
+      ctx.save();
+      const boxW = 88;
+      const boxH = 24;
+      const boxX = sx - boxW / 2;
+      const boxY = sy - 34;
+
+      // Hologram Glass Background
+      ctx.fillStyle = 'rgba(4, 8, 20, 0.85)';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      const hue = remote.characterHue ?? 140;
+      ctx.strokeStyle = `hsl(${hue}, 100%, 55%)`;
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      // Teammate Call-Sign
+      ctx.font = 'bold 9px "Orbitron", monospace';
+      ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(remote.name.toUpperCase(), sx, boxY + 10);
+
+      // Mini Health Bar
+      const barW = boxW - 8;
+      const barH = 3.5;
+      const barX = boxX + 4;
+      const barY = boxY + 14;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fillRect(barX, barY, barW, barH);
+
+      const hpRatio = Math.max(0, Math.min(1, remote.health / (remote.maxHealth || 100)));
+      ctx.fillStyle = hpRatio > 0.4 ? '#00FF66' : '#FF0055';
+      ctx.fillRect(barX, barY, barW * hpRatio, barH);
+      ctx.restore();
+    }
+
+    // 2. Render Tactical Pings
+    const now = Date.now();
+    for (let i = tacticalPings.length - 1; i >= 0; i--) {
+      const ping = tacticalPings[i];
+      const age = now - ping.timestamp;
+      if (age > 6000) continue; // expires after 6s
+
+      const pos3D = new THREE.Vector3(
+        ping.x * this.WORLD_SCALE,
+        15,
+        ping.y * this.WORLD_SCALE
+      );
+      pos3D.project(this.camera);
+      if (pos3D.z > 1.0) continue;
+
+      const sx = ((pos3D.x + 1) * 0.5) * W;
+      const sy = ((-pos3D.y + 1) * 0.5) * H;
+
+      const pulse = 10 + Math.sin(age * 0.012) * 5;
+      ctx.save();
+      ctx.strokeStyle = ping.category === 'DANGER' ? '#FF0055' : '#00FFD1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, pulse, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.font = '900 10px "Orbitron", monospace';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = ping.category === 'DANGER' ? '#FF0055' : '#00FFD1';
+      ctx.shadowBlur = 10;
+      ctx.fillText(`[${ping.senderName}] ${ping.text}`, sx, sy - 16);
+      ctx.restore();
+    }
   }
 
   private renderRadarMinimap2D(
@@ -7473,6 +8186,354 @@ export class ThreeSceneManager {
         this.enemyHealthAnimMap.delete(id);
       }
     }
+  }
+
+  /** Sleek, responsive cyberpunk neon reticle at screen center with target-lock tracking */
+  private renderDynamicCrosshair2D(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    targetLockedEnemy: WorldEntity | null,
+    entities: WorldEntity[],
+    player: Player
+  ) {
+    const cx = W / 2;
+    const cy = H / 2;
+    const isLocked = !!(
+      targetLockedEnemy &&
+      targetLockedEnemy.bacteriaData &&
+      targetLockedEnemy.bacteriaData.health > 0
+    );
+
+    const primaryColor = isLocked ? '#FF0055' : '#00FFD1';
+    const secondaryColor = isLocked ? '#FF3366' : '#88FFFF';
+    const coreColor = '#FFFFFF';
+    const recoilExpand = (player.shootTimer > 0 || (player.muzzleFlashTimer && player.muzzleFlashTimer > 0)) ? 6 : 0;
+    const baseR = isLocked ? 22 + recoilExpand : 26 + recoilExpand;
+    const animPulse = Math.sin(Date.now() * 0.008) * (isLocked ? 2.5 : 1.2);
+    const r = baseR + animPulse;
+
+    ctx.save();
+
+    // 1. Target Tracking Guideline & Target Box if Locked
+    if (isLocked && targetLockedEnemy) {
+      const v3 = new THREE.Vector3(
+        targetLockedEnemy.position.x * this.WORLD_SCALE,
+        18,
+        targetLockedEnemy.position.y * this.WORLD_SCALE
+      );
+      v3.project(this.camera);
+
+      if (v3.z < 1.0) {
+        const ex = ((v3.x + 1) * W) / 2;
+        const ey = ((-v3.y + 1) * H) / 2;
+
+        ctx.save();
+        // Laser trajectory dotted targeting beam
+        ctx.setLineDash([4, 6]);
+        ctx.strokeStyle = 'rgba(255, 0, 85, 0.55)';
+        ctx.shadowColor = '#FF0055';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+
+        // High-Tech Target Diamond Frame on enemy
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#FF0055';
+        ctx.lineWidth = 2.0;
+        const dSize = 20 + Math.sin(Date.now() * 0.012) * 3;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey - dSize);
+        ctx.lineTo(ex + dSize, ey);
+        ctx.lineTo(ex, ey + dSize);
+        ctx.lineTo(ex - dSize, ey);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Corner tick marks
+        const tickL = 6;
+        ctx.beginPath();
+        ctx.moveTo(ex - dSize - tickL, ey);
+        ctx.lineTo(ex - dSize, ey);
+        ctx.moveTo(ex + dSize, ey);
+        ctx.lineTo(ex + dSize + tickL, ey);
+        ctx.moveTo(ex, ey - dSize - tickL);
+        ctx.lineTo(ex, ey - dSize);
+        ctx.moveTo(ex, ey + dSize);
+        ctx.lineTo(ex, ey + dSize + tickL);
+        ctx.stroke();
+
+        // Distance & Target Name Header
+        const dist = Math.round(
+          Math.hypot(
+            targetLockedEnemy.position.x - player.position.x,
+            targetLockedEnemy.position.y - player.position.y
+          ) * 0.1
+        );
+        ctx.font = 'bold 9px "Orbitron", monospace';
+        ctx.fillStyle = '#FF0055';
+        ctx.textAlign = 'center';
+        ctx.fillText(`TARGET LOCKED // ${dist}m`, ex, ey - dSize - 8);
+        ctx.restore();
+      }
+    }
+
+    // 2. Center Precision Pip (White-hot core with neon ring)
+    ctx.fillStyle = coreColor;
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. Four Futuristic Cyberpunk Corner Chevron Brackets [   ]
+    ctx.strokeStyle = primaryColor;
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = isLocked ? 14 : 9;
+    ctx.lineWidth = 2.0;
+
+    const cornerLen = 8;
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r + cornerLen);
+    ctx.lineTo(cx - r, cy - r);
+    ctx.lineTo(cx - r + cornerLen, cy - r);
+    ctx.stroke();
+
+    // Top-Right
+    ctx.beginPath();
+    ctx.moveTo(cx + r - cornerLen, cy - r);
+    ctx.lineTo(cx + r, cy - r);
+    ctx.lineTo(cx + r, cy - r + cornerLen);
+    ctx.stroke();
+
+    // Bottom-Left
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy + r - cornerLen);
+    ctx.lineTo(cx - r, cy + r);
+    ctx.lineTo(cx - r + cornerLen, cy + r);
+    ctx.stroke();
+
+    // Bottom-Right
+    ctx.beginPath();
+    ctx.moveTo(cx + r - cornerLen, cy + r);
+    ctx.lineTo(cx + r, cy + r);
+    ctx.lineTo(cx + r, cy + r - cornerLen);
+    ctx.stroke();
+
+    // 4. Cardinal Precision Reticle Ticks
+    const tickInner = r - 4;
+    const tickOuter = r + 8;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = secondaryColor;
+
+    // Top tick
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - tickInner);
+    ctx.lineTo(cx, cy - tickOuter);
+    ctx.stroke();
+
+    // Bottom tick
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + tickInner);
+    ctx.lineTo(cx, cy + tickOuter);
+    ctx.stroke();
+
+    // Left tick
+    ctx.beginPath();
+    ctx.moveTo(cx - tickInner, cy);
+    ctx.lineTo(cx - tickOuter, cy);
+    ctx.stroke();
+
+    // Right tick
+    ctx.beginPath();
+    ctx.moveTo(cx + tickInner, cy);
+    ctx.lineTo(cx + tickOuter, cy);
+    ctx.stroke();
+
+    // 5. Segmented Rotating Outer Tech Arc
+    const rotSpeed = Date.now() * 0.0018;
+    ctx.strokeStyle = isLocked ? 'rgba(255, 0, 85, 0.4)' : 'rgba(0, 255, 209, 0.35)';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 12, rotSpeed, rotSpeed + Math.PI * 0.4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 12, rotSpeed + Math.PI, rotSpeed + Math.PI * 1.4);
+    ctx.stroke();
+
+    // 6. Tactical Telemetry Status Label
+    ctx.font = 'bold 8px "Orbitron", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = primaryColor;
+    ctx.shadowBlur = isLocked ? 10 : 6;
+    if (isLocked) {
+      const lockPulse = Math.sin(Date.now() * 0.015) > 0 ? '▶ LOCK ACQUIRED ◀' : '▷ LOCK ACQUIRED ◁';
+      ctx.fillText(lockPulse, cx, cy + r + 22);
+    } else {
+      ctx.fillStyle = 'rgba(0, 255, 209, 0.75)';
+      ctx.fillText('SYS.READY // AUTO-AIM', cx, cy + r + 20);
+    }
+
+    ctx.restore();
+  }
+
+  /** Render thick heavy sci-fi plasma laser beams with intense luminous neon bloom on 2D overlay */
+  private renderThickPlasmaLasers2D(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    projectiles: Projectile[],
+    camera: Camera2D
+  ) {
+    if (!projectiles || projectiles.length === 0) return;
+
+    ctx.save();
+    for (const bolt of projectiles) {
+      const v3 = new THREE.Vector3(bolt.position.x * this.WORLD_SCALE, 16, bolt.position.y * this.WORLD_SCALE);
+      v3.project(this.camera);
+      if (v3.z >= 1.0) continue;
+
+      const sx = ((v3.x + 1) * W) / 2;
+      const sy = ((-v3.y + 1) * H) / 2;
+      if (sx < -80 || sx > W + 80 || sy < -80 || sy > H + 80) continue;
+
+      const spd = Math.hypot(bolt.velocity.x, bolt.velocity.y);
+      if (spd === 0) continue;
+
+      // Project trail back direction
+      const v3Prev = new THREE.Vector3(
+        (bolt.position.x - bolt.velocity.x * 2.2) * this.WORLD_SCALE,
+        16,
+        (bolt.position.y - bolt.velocity.y * 2.2) * this.WORLD_SCALE
+      );
+      v3Prev.project(this.camera);
+      const tailX = ((v3Prev.x + 1) * W) / 2;
+      const tailY = ((-v3Prev.y + 1) * H) / 2;
+
+      const isCrit = !!bolt.isCriticalFinisher;
+      const color = bolt.color;
+
+      // Pass 1: Wide Volumetric Ambient Bloom (Intense neon pink or cyan glow)
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = isCrit ? 36 : 24;
+      ctx.lineWidth = isCrit ? 22 : 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+
+      // Pass 2: High-Density Luminous Plasma Sheath
+      ctx.strokeStyle = color === '#FF00E5' ? '#FF66F0' : color === '#FFD700' ? '#FFEE55' : '#88FFFF';
+      ctx.shadowBlur = isCrit ? 18 : 12;
+      ctx.lineWidth = isCrit ? 12 : 7;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+
+      // Pass 3: White-Hot Superheated Laser Core
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.shadowColor = '#FFFFFF';
+      ctx.shadowBlur = 6;
+      ctx.lineWidth = isCrit ? 4.5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+
+      // Plasma Head Shockwave Cap
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(sx, sy, isCrit ? 6.5 : 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Micro Electric Arcs
+      for (let a = 0; a < 2; a++) {
+        const offset = (Math.random() - 0.5) * 8;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(tailX + offset, tailY + offset);
+        ctx.lineTo(sx, sy);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Render persistent glowing laser burn marks and scorch marks on surfaces */
+  private renderLaserBurnMarks2D(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    burns: LaserBurnMark[],
+    camera: Camera2D
+  ) {
+    if (!burns || burns.length === 0) return;
+
+    ctx.save();
+    for (const mark of burns) {
+      const v3 = new THREE.Vector3(mark.x * this.WORLD_SCALE, mark.surface === 'WALL' ? 14 : 0.5, mark.y * this.WORLD_SCALE);
+      v3.project(this.camera);
+      if (v3.z >= 1.0) continue;
+
+      const sx = ((v3.x + 1) * W) / 2;
+      const sy = ((-v3.y + 1) * H) / 2;
+      if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) continue;
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1.0, mark.alpha));
+
+      // 1. Radiating Molten Fractures / Spokes
+      ctx.strokeStyle = mark.color;
+      ctx.shadowColor = mark.color;
+      ctx.shadowBlur = 10;
+      for (const spoke of mark.spokes) {
+        ctx.lineWidth = spoke.width;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(
+          sx + Math.cos(spoke.angle) * spoke.length,
+          sy + Math.sin(spoke.angle) * spoke.length
+        );
+        ctx.stroke();
+      }
+
+      // 2. Charred Outer Perimeter
+      ctx.fillStyle = 'rgba(6, 10, 18, 0.75)';
+      ctx.beginPath();
+      ctx.arc(sx, sy, mark.radius * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Molten Glowing Core
+      const grad = ctx.createRadialGradient(sx, sy, 1, sx, sy, mark.radius * 0.65);
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(0.35, mark.color);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.shadowColor = mark.color;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(sx, sy, mark.radius * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   private renderRhythmMetronome2D(

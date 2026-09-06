@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen, Globe } from 'lucide-react';
+import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen, Globe, Users, UploadCloud, Crown } from 'lucide-react';
 import { GameSettings, GameStats } from '../types';
 import { assetUrls } from '../assetLoader';
 import { CombatGuideMenu } from './CombatGuideMenu';
@@ -9,16 +9,22 @@ import { Language, getTranslation } from '../localization';
 
 interface StartScreenProps {
   onStart: () => void;
+  onSelectStage?: (stage: number) => void;
   stats: GameStats;
   settings: GameSettings;
   onUpdateSettings: (settings: Partial<GameSettings>) => void;
+  onOpenMultiplayer?: () => void;
+  onOpenVercelDeploy?: () => void;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
   onStart,
+  onSelectStage,
   stats,
   settings,
   onUpdateSettings,
+  onOpenMultiplayer,
+  onOpenVercelDeploy,
 }) => {
   const [showCombatGuide, setShowCombatGuide] = useState<boolean>(false);
   const currentLang: Language = settings.language || 'MY';
@@ -200,6 +206,67 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <span>{t.howToPlay}</span>
             </button>
           </div>
+
+          {/* Multiplayer Squad & Vercel Deploy Action Bar */}
+          <div className="flex flex-row items-center gap-2 w-full max-w-xl mb-3">
+            <button
+              id="btn-open-multiplayer"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenMultiplayer?.();
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                onOpenMultiplayer?.();
+              }}
+              className="flex-1 py-2.5 px-3 bg-cyan-950/50 hover:bg-cyan-900/70 border border-[#00FFD1] text-[#00FFD1] hover:text-white font-bold text-xs uppercase tracking-wider transition-all duration-150 shadow-[0_0_15px_rgba(0,255,209,0.25)] rounded flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
+            >
+              <Users size={15} />
+              <span>{t.multiplayerSquad}</span>
+            </button>
+
+            <button
+              id="btn-open-vercel-guide"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenVercelDeploy?.();
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                onOpenVercelDeploy?.();
+              }}
+              className="flex-1 py-2.5 px-3 bg-purple-950/50 hover:bg-purple-900/70 border border-[#FF00E5] text-[#FF00E5] hover:text-white font-bold text-xs uppercase tracking-wider transition-all duration-150 shadow-[0_0_15px_rgba(255,0,229,0.25)] rounded flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
+            >
+              <UploadCloud size={15} />
+              <span>{t.vercelDeployGuide}</span>
+            </button>
+          </div>
+
+          {/* Quick Stage 5 Boss Battle Jump */}
+          {onSelectStage && (
+            <button
+              id="btn-jump-stage-5-boss"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectStage(5);
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                onSelectStage(5);
+              }}
+              className="w-full max-w-xl py-2 px-3 bg-gradient-to-r from-[#FF0055]/20 via-[#1A030C]/90 to-[#FF0055]/20 hover:from-[#FF0055]/30 hover:to-[#FF0055]/30 border border-[#FF0055] text-[#FF0055] hover:text-white font-bold text-xs uppercase tracking-wider transition-all duration-150 shadow-[0_0_15px_rgba(255,0,85,0.3)] rounded flex items-center justify-center gap-2 cursor-pointer touch-manipulation mb-3 font-mono-tech"
+            >
+              <Crown size={14} className="text-[#FFE600] animate-pulse" />
+              <span>
+                {currentLang === 'MY'
+                  ? '👑 အဆင့် ၅: APEX BOSS လူဆိုးဗိုလ်စခန်းသို့ တိုက်ရိုက်သွားမည်'
+                  : '👑 DIRECT JUMP: STAGE 05 APEX BOSS ENCOUNTER'}
+              </span>
+            </button>
+          )}
 
           {/* Control Keys Matrix */}
           <div className="grid grid-cols-3 gap-2 w-full max-w-xl mb-3 text-left pointer-events-none text-[9px] sm:text-[10px]">

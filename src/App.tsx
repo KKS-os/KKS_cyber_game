@@ -9,10 +9,16 @@ import { SettingsModal } from './components/SettingsModal';
 import { StageCompleteModal } from './components/StageCompleteModal';
 import { GameVictoryModal } from './components/GameVictoryModal';
 import { CombatGuideMenu } from './components/CombatGuideMenu';
+import { PitfallAbyssOverlay } from './components/PitfallAbyssOverlay';
+import { MultiplayerLobbyModal } from './components/MultiplayerLobbyModal';
+import { VercelDeploymentModal } from './components/VercelDeploymentModal';
+import { TacticalPingWheel } from './components/TacticalPingWheel';
+import { multiplayer } from './multiplayerManager';
 import {
   GameSettings,
   GameStats,
   GameState,
+  DeathCause,
   JoystickVelocity,
   StageClearSummary,
   StageObjectiveState,
@@ -55,6 +61,11 @@ export default function App() {
   const [highScore, setHighScore] = useState<number>(0);
   const [integrity, setIntegrity] = useState<number>(100);
 
+  // Abyss pitfall freefall telemetry
+  const [isFallingIntoAbyss, setIsFallingIntoAbyss] = useState<boolean>(false);
+  const [fallDepthMeters, setFallDepthMeters] = useState<number>(0);
+  const [lastDeathCause, setLastDeathCause] = useState<DeathCause>('COMBAT');
+
   // Powerup indicators
   const [hasShield, setHasShield] = useState<boolean>(false);
   const [overdriveTimer, setOverdriveTimer] = useState<number>(0);
@@ -72,6 +83,21 @@ export default function App() {
   // Settings & Guide Modal State
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [showCombatGuideModal, setShowCombatGuideModal] = useState<boolean>(false);
+  const [showMultiplayerModal, setShowMultiplayerModal] = useState<boolean>(false);
+  const [showVercelDeployModal, setShowVercelDeployModal] = useState<boolean>(false);
+  const [showTacticalPingWheel, setShowTacticalPingWheel] = useState<boolean>(false);
+
+  // Auto-detect multiplayer room from invite URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('room')) {
+        setShowMultiplayerModal(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Settings & Stats from localStorage
   const [settings, setSettings] = useState<GameSettings>(() => {
@@ -132,15 +158,28 @@ export default function App() {
     const engine = new GameEngine(canvas, settings, stats);
     engineRef.current = engine;
 
-    engine.onStateChange = (newState) => {
+    engine.onStateChange = (newState, deathCause) => {
       setGameState(newState);
+      if (deathCause) {
+        setLastDeathCause(deathCause);
+      }
       if (newState === 'GAMEOVER') {
         setStats({ ...engine.stats });
         setHighScore(engine.highScore);
+        setIsFallingIntoAbyss(false);
       }
     };
 
-    engine.onScoreUpdate = (currentScore, currentDistance, combo, multiplier, currentIntegrity) => {
+    engine.onScoreUpdate = (
+      currentScore,
+      currentDistance,
+      combo,
+      multiplier,
+      currentIntegrity,
+      _energy,
+      fallingAbyss,
+      fallDepth
+    ) => {
       setScore(currentScore);
       setDistance(currentDistance);
       setComboCount(combo);
@@ -151,6 +190,10 @@ export default function App() {
       setChronoTimer(engine.player.chronoTimer);
       setRhythmBeatState({ ...engine.rhythmBeatState });
       setSpeedrunDelta({ ...engine.speedrunDelta });
+      setIsFallingIntoAbyss(!!fallingAbyss);
+      if (fallDepth !== undefined) {
+        setFallDepthMeters(fallDepth);
+      }
     };
 
     engine.onStageClear = (summary) => {
@@ -302,6 +345,13 @@ export default function App() {
         e.preventDefault();
         eng.switchWeapon('QUANTUM_VORTEX');
       }
+      // Tactical Squad Ping Wheel (T)
+      if (code === 'KeyT' || key === 't') {
+        e.preventDefault();
+        setShowTacticalPingWheel((prev) => !prev);
+        return;
+      }
+
       // Combat & Strategy Guide (H / ?)
       if (code === 'KeyH' || key === 'h' || key === '?') {
         e.preventDefault();
@@ -470,6 +520,9 @@ export default function App() {
   };
 
   const handleRestartGame = () => {
+    setIsFallingIntoAbyss(false);
+    setFallDepthMeters(0);
+    setLastDeathCause('COMBAT');
     if (engineRef.current) {
       engineRef.current.startGame();
     }
@@ -487,6 +540,13 @@ export default function App() {
   const handleNextStage = useCallback(() => {
     if (engineRef.current) {
       engineRef.current.nextStage();
+      setStageClearSummary(null);
+    }
+  }, []);
+
+  const handleSelectStage = useCallback((stageNumber: number) => {
+    if (engineRef.current) {
+      engineRef.current.setStage(stageNumber);
       setStageClearSummary(null);
     }
   }, []);
@@ -589,6 +649,7 @@ export default function App() {
           overdriveTimer={overdriveTimer}
           chronoTimer={chronoTimer}
           settings={settings}
+          isFallingIntoAbyss={isFallingIntoAbyss}
           objectiveState={objectiveState || undefined}
           rhythmBeatState={rhythmBeatState || undefined}
           speedrunDelta={speedrunDelta || undefined}
@@ -601,6 +662,16 @@ export default function App() {
           onTogglePause={handleResumeGame}
           onOpenGuide={handleOpenCombatGuide}
           onToggleLanguage={() => handleUpdateSettings({ language: (settings.language === 'MY' ? 'EN' : 'MY') })}
+          onOpenTacticalPing={() => setShowTacticalPingWheel(true)}
+          onOpenMultiplayer={() => setShowMultiplayerModal(true)}
+        />
+      )}
+
+      {/* Dramatic Abyss Pitfall Descent Overlay */}
+      {isFallingIntoAbyss && gameState === 'PLAYING' && (
+        <PitfallAbyssOverlay
+          depthMeters={fallDepthMeters}
+          language={settings.language}
         />
       )}
 
@@ -625,9 +696,12 @@ export default function App() {
       {gameState === 'MENU' && (
         <StartScreen
           onStart={handleStartGame}
+          onSelectStage={handleSelectStage}
           stats={stats}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
+          onOpenMultiplayer={() => setShowMultiplayerModal(true)}
+          onOpenVercelDeploy={() => setShowVercelDeployModal(true)}
         />
       )}
 
@@ -641,6 +715,8 @@ export default function App() {
           maxCombo={engineRef.current?.maxComboInRun || 0}
           stats={stats}
           settings={settings}
+          deathCause={lastDeathCause}
+          fallDepth={fallDepthMeters}
           onRestart={handleRestartGame}
         />
       )}
@@ -686,12 +762,53 @@ export default function App() {
       )}
 
       {/* In-Game Combat & Tactical Survival Guide Modal */}
-      <CombatGuideMenu
-        isOpen={showCombatGuideModal}
-        onClose={handleCloseCombatGuide}
-        currentLanguage={settings.language || 'MY'}
-        onLanguageChange={(lang) => handleUpdateSettings({ language: lang })}
-      />
+      {showCombatGuideModal && (
+        <CombatGuideMenu
+          isOpen={showCombatGuideModal}
+          onClose={handleCloseCombatGuide}
+          currentLanguage={settings.language || 'MY'}
+          onLanguageChange={(lang) => handleUpdateSettings({ language: lang })}
+        />
+      )}
+
+      {/* Real-time Multiplayer Squad Co-Op Lobby Modal */}
+      {showMultiplayerModal && (
+        <MultiplayerLobbyModal
+          isOpen={showMultiplayerModal}
+          onClose={() => setShowMultiplayerModal(false)}
+          onStartGame={() => {
+            setShowMultiplayerModal(false);
+            handleStartGame();
+          }}
+          onOpenVercelGuide={() => {
+            setShowMultiplayerModal(false);
+            setShowVercelDeployModal(true);
+          }}
+          language={settings.language || 'MY'}
+          characterHue={settings.characterHue || 0}
+          onCharacterHueChange={(hue) => handleUpdateSettings({ characterHue: hue })}
+        />
+      )}
+
+      {/* Vercel Cloud Deployment & Step-by-Step Instructions Modal */}
+      {showVercelDeployModal && (
+        <VercelDeploymentModal
+          isOpen={showVercelDeployModal}
+          onClose={() => setShowVercelDeployModal(false)}
+          language={settings.language || 'MY'}
+        />
+      )}
+
+      {/* Tactical Squad Quick Ping Radial Wheel */}
+      {showTacticalPingWheel && (
+        <TacticalPingWheel
+          isOpen={showTacticalPingWheel}
+          playerX={engineRef.current?.getPlayerPosition().x || 0}
+          playerY={engineRef.current?.getPlayerPosition().y || 0}
+          onClose={() => setShowTacticalPingWheel(false)}
+          language={settings.language || 'MY'}
+        />
+      )}
     </main>
   );
 }

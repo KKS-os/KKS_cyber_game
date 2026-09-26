@@ -9,7 +9,6 @@ import {
   Play,
   Share2,
   AlertTriangle,
-  Rocket,
   Shield,
   Palette,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ interface MultiplayerLobbyModalProps {
   isOpen?: boolean;
   onClose: () => void;
   onStartGame?: () => void;
-  onOpenVercelGuide?: () => void;
   language?: Language;
   initialPlayerName?: string;
   characterHue: number;
@@ -33,7 +31,6 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
   isOpen = true,
   onClose,
   onStartGame,
-  onOpenVercelGuide,
   language = 'MY',
   initialPlayerName = 'CyberRunner',
   characterHue,
@@ -387,16 +384,8 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
           </div>
         )}
 
-        {/* Vercel Deployment Link Quick Button */}
-        <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-          <button
-            onClick={onOpenVercelGuide}
-            className="text-cyan-400 hover:text-[#00FFD1] flex items-center gap-1.5 transition-colors font-bold text-[11px]"
-          >
-            <Rocket size={14} />
-            <span>{t.vercelGuideBtn}</span>
-          </button>
-
+        {/* Footer */}
+        <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-end text-xs">
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors text-[11px]"

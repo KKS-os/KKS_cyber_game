@@ -223,6 +223,58 @@ class SoundSynthesizer {
     } catch {}
   }
 
+  /** Dynamic Combat Combo Strike Sound: Escalating pitch, crisp transient, cyber resonance */
+  public playCombatComboHit(combo = 1) {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+      const t = this.ctx.currentTime;
+
+      // Base cyber ascending pentatonic scale with combo count
+      const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98];
+      const noteIndex = Math.min(Math.max(0, combo - 1), scale.length - 1);
+      const rootFreq = scale[noteIndex];
+
+      // Primary crisp punch oscillator
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = combo >= 10 ? 'sawtooth' : 'triangle';
+      osc.frequency.setValueAtTime(rootFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(rootFreq * 1.35, t + 0.06);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(combo >= 15 ? 4500 : 2500, t);
+      filter.frequency.exponentialRampToValueAtTime(800, t + 0.12);
+
+      const vol = Math.min(0.45, 0.22 + (combo * 0.008));
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (combo >= 10 ? 0.18 : 0.12));
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+
+      osc.start(t);
+      osc.stop(t + 0.18);
+
+      // Add harmonic sparkle overtone for combos 5+
+      if (combo >= 5) {
+        const overtone = this.ctx.createOscillator();
+        const overGain = this.ctx.createGain();
+        overtone.type = 'sine';
+        overtone.frequency.setValueAtTime(rootFreq * 2, t);
+        overGain.gain.setValueAtTime(0.12, t);
+        overGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+        overtone.connect(overGain);
+        overGain.connect(this.sfxGain);
+        overtone.start(t);
+        overtone.stop(t + 0.15);
+      }
+    } catch {}
+  }
+
   /** Powerup Acquired */
   public playPowerup() {
     if (this.isMuted) return;

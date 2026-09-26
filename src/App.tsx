@@ -13,6 +13,7 @@ import { PitfallAbyssOverlay } from './components/PitfallAbyssOverlay';
 import { MultiplayerLobbyModal } from './components/MultiplayerLobbyModal';
 import { VercelDeploymentModal } from './components/VercelDeploymentModal';
 import { TacticalPingWheel } from './components/TacticalPingWheel';
+import { RotateDevicePrompt } from './components/RotateDevicePrompt';
 import { multiplayer } from './multiplayerManager';
 import {
   GameSettings,
@@ -58,6 +59,9 @@ export default function App() {
   const [distance, setDistance] = useState<number>(0);
   const [comboCount, setComboCount] = useState<number>(0);
   const [comboMultiplier, setComboMultiplier] = useState<number>(1);
+  const [comboTimer, setComboTimer] = useState<number>(0);
+  const [maxComboTimer, setMaxComboTimer] = useState<number>(240);
+  const [lastCombatHitTime, setLastCombatHitTime] = useState<number>(0);
   const [highScore, setHighScore] = useState<number>(0);
   const [integrity, setIntegrity] = useState<number>(100);
 
@@ -178,7 +182,10 @@ export default function App() {
       currentIntegrity,
       _energy,
       fallingAbyss,
-      fallDepth
+      fallDepth,
+      cTimer,
+      maxCTimer,
+      lastHitTime
     ) => {
       setScore(currentScore);
       setDistance(currentDistance);
@@ -194,6 +201,9 @@ export default function App() {
       if (fallDepth !== undefined) {
         setFallDepthMeters(fallDepth);
       }
+      if (cTimer !== undefined) setComboTimer(cTimer);
+      if (maxCTimer !== undefined) setMaxComboTimer(maxCTimer);
+      if (lastHitTime !== undefined) setLastCombatHitTime(lastHitTime);
     };
 
     engine.onStageClear = (summary) => {
@@ -507,7 +517,17 @@ export default function App() {
     }
   };
 
+  const lockLandscapeOrientation = () => {
+    try {
+      if (screen.orientation && 'lock' in screen.orientation) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (screen.orientation as any).lock('landscape').catch(() => {});
+      }
+    } catch {}
+  };
+
   const handleStartGame = () => {
+    lockLandscapeOrientation();
     if (engineRef.current) {
       engineRef.current.startGame();
     }
@@ -520,6 +540,7 @@ export default function App() {
   };
 
   const handleRestartGame = () => {
+    lockLandscapeOrientation();
     setIsFallingIntoAbyss(false);
     setFallDepthMeters(0);
     setLastDeathCause('COMBAT');
@@ -616,7 +637,11 @@ export default function App() {
     <main
       id="game-viewport"
       ref={containerRef}
-      className={`fixed inset-0 w-full h-full overflow-hidden bg-[#060312] flex items-center justify-center select-none ${
+      style={{
+        width: '100vw',
+        height: '100dvh',
+      }}
+      className={`fixed inset-0 w-screen h-screen w-[100vw] h-[100vh] h-[100dvh] max-w-none max-h-none overflow-hidden bg-[#060312] select-none block ${
         settings.crtOverlay ? 'crt-overlay' : ''
       }`}
       onClick={handleCanvasClick}
@@ -627,70 +652,93 @@ export default function App() {
       {/* Geometric Grid Background Pattern */}
       <div className="absolute inset-0 opacity-20 pointer-events-none geometric-grid-bg z-0"></div>
 
-      {/* HTML5 Canvas Game Stage */}
+      {/* HTML5 Canvas Game Stage - Full Screen Bleed */}
       <canvas
         id="game-canvas"
         ref={canvasRef}
         onPointerMove={handlePointerMoveCanvas}
-        className="absolute inset-0 w-full h-full block bg-[#0a0518] cursor-crosshair z-0"
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+        className="fixed inset-0 w-full h-full block bg-[#0a0518] cursor-crosshair z-0"
       />
 
-      {/* In-Game Heads Up Display (HUD) */}
-      {(gameState === 'PLAYING' || (gameState === 'PAUSED' && showCombatGuideModal)) && (
-        <HUD
-          score={score}
-          distance={distance}
-          highScore={highScore || stats.highScore}
-          comboCount={comboCount}
-          comboMultiplier={comboMultiplier}
-          integrity={integrity}
-          isPaused={gameState === 'PAUSED'}
-          hasShield={hasShield}
-          overdriveTimer={overdriveTimer}
-          chronoTimer={chronoTimer}
-          settings={settings}
-          isFallingIntoAbyss={isFallingIntoAbyss}
-          objectiveState={objectiveState || undefined}
-          rhythmBeatState={rhythmBeatState || undefined}
-          speedrunDelta={speedrunDelta || undefined}
-          activeWeapon={activeWeapon}
-          weaponArsenal={weaponArsenal}
-          getRadarTelemetry={() => engineRef.current?.getRadarTelemetry() || null}
-          onSelectWeapon={(wType) => engineRef.current?.switchWeapon(wType)}
-          onToggleSound={() => handleUpdateSettings({ soundEnabled: !settings.soundEnabled })}
-          onToggleMusic={() => handleUpdateSettings({ musicEnabled: !settings.musicEnabled })}
-          onTogglePause={handleResumeGame}
-          onOpenGuide={handleOpenCombatGuide}
-          onToggleLanguage={() => handleUpdateSettings({ language: (settings.language === 'MY' ? 'EN' : 'MY') })}
-          onOpenTacticalPing={() => setShowTacticalPingWheel(true)}
-          onOpenMultiplayer={() => setShowMultiplayerModal(true)}
-        />
-      )}
+      {/* Main Game Box / UI Stage: Responsive True Full-Screen Overlay Stage */}
+      <div
+        id="game-main-box"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+        }}
+        className="absolute inset-0 w-full h-full max-w-full max-h-full flex flex-col justify-between items-stretch pointer-events-none z-10 overflow-hidden box-border"
+      >
+        {/* In-Game Heads Up Display (HUD) */}
+        {(gameState === 'PLAYING' || (gameState === 'PAUSED' && showCombatGuideModal)) && (
+          <HUD
+            score={score}
+            distance={distance}
+            highScore={highScore || stats.highScore}
+            comboCount={comboCount}
+            comboMultiplier={comboMultiplier}
+            comboTimer={comboTimer}
+            maxComboTimer={maxComboTimer}
+            lastCombatHitTime={lastCombatHitTime}
+            integrity={integrity}
+            isPaused={gameState === 'PAUSED'}
+            hasShield={hasShield}
+            overdriveTimer={overdriveTimer}
+            chronoTimer={chronoTimer}
+            settings={settings}
+            isFallingIntoAbyss={isFallingIntoAbyss}
+            objectiveState={objectiveState || undefined}
+            rhythmBeatState={rhythmBeatState || undefined}
+            speedrunDelta={speedrunDelta || undefined}
+            activeWeapon={activeWeapon}
+            weaponArsenal={weaponArsenal}
+            getRadarTelemetry={() => engineRef.current?.getRadarTelemetry() || null}
+            onSelectWeapon={(wType) => engineRef.current?.switchWeapon(wType)}
+            onToggleSound={() => handleUpdateSettings({ soundEnabled: !settings.soundEnabled })}
+            onToggleMusic={() => handleUpdateSettings({ musicEnabled: !settings.musicEnabled })}
+            onTogglePause={handleResumeGame}
+            onOpenGuide={handleOpenCombatGuide}
+            onToggleLanguage={() => handleUpdateSettings({ language: (settings.language === 'MY' ? 'EN' : 'MY') })}
+            onOpenTacticalPing={() => setShowTacticalPingWheel(true)}
+            onOpenMultiplayer={() => setShowMultiplayerModal(true)}
+          />
+        )}
 
-      {/* Dramatic Abyss Pitfall Descent Overlay */}
-      {isFallingIntoAbyss && gameState === 'PLAYING' && (
-        <PitfallAbyssOverlay
-          depthMeters={fallDepthMeters}
-          language={settings.language}
-        />
-      )}
+        {/* Dramatic Abyss Pitfall Descent Overlay */}
+        {isFallingIntoAbyss && gameState === 'PLAYING' && (
+          <PitfallAbyssOverlay
+            depthMeters={fallDepthMeters}
+            language={settings.language}
+          />
+        )}
 
-      {/* 360-Degree Virtual Touch Joystick & Tactical Action Controls */}
-      {gameState === 'PLAYING' && settings.touchControls && (
-        <VirtualJoystick
-          onMoveVelocity={handleJoystickVelocity}
-          onMove={handleJoystickMove}
-          onEnd={handleJoystickEnd}
-          onSlash={handleSlashAction}
-          onStealthTakedown={handleStealthTakedownAction}
-          onCrouch={handleCrouchAction}
-          onCover={handleCoverAction}
-          onShoot={handleShootAction}
-          onDash={handleDashAction}
-          onHack={handleHackAction}
-          comboCount={comboCount}
-        />
-      )}
+        {/* 360-Degree Virtual Touch Joystick & Tactical Action Controls */}
+        {gameState === 'PLAYING' && settings.touchControls && (
+          <VirtualJoystick
+            onMoveVelocity={handleJoystickVelocity}
+            onMove={handleJoystickMove}
+            onEnd={handleJoystickEnd}
+            onSlash={handleSlashAction}
+            onStealthTakedown={handleStealthTakedownAction}
+            onCrouch={handleCrouchAction}
+            onCover={handleCoverAction}
+            onShoot={handleShootAction}
+            onDash={handleDashAction}
+            onHack={handleHackAction}
+            comboCount={comboCount}
+          />
+        )}
+      </div>
 
       {/* Start Menu Overlay */}
       {gameState === 'MENU' && (
@@ -780,10 +828,6 @@ export default function App() {
             setShowMultiplayerModal(false);
             handleStartGame();
           }}
-          onOpenVercelGuide={() => {
-            setShowMultiplayerModal(false);
-            setShowVercelDeployModal(true);
-          }}
           language={settings.language || 'MY'}
           characterHue={settings.characterHue || 0}
           onCharacterHueChange={(hue) => handleUpdateSettings({ characterHue: hue })}
@@ -809,6 +853,9 @@ export default function App() {
           language={settings.language || 'MY'}
         />
       )}
+
+      {/* Responsive Mobile Landscape Orientation Prompt & Locker */}
+      <RotateDevicePrompt language={settings.language || 'MY'} />
     </main>
   );
 }

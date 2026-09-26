@@ -362,6 +362,9 @@ export class GameEngine {
   public comboCount: number = 0;
   public comboMultiplier: number = 1;
   public comboTimer: number = 0;
+  public maxComboTimer: number = 240;
+  public lastCombatHitTimestamp: number = 0;
+  public lastCombatHitType: string = 'PROJECTILE';
   public maxComboInRun: number = 0;
   public chipsCollectedInRun: number = 0;
   public terminalsHackedInRun: number = 0;
@@ -514,7 +517,10 @@ export class GameEngine {
     integrity: number,
     energy: number,
     isFallingIntoAbyss?: boolean,
-    fallDepthMeters?: number
+    fallDepthMeters?: number,
+    comboTimer?: number,
+    maxComboTimer?: number,
+    lastCombatHitTimestamp?: number
   ) => void;
   public onRhythmBeatUpdate?: (beatState: RhythmBeatState, delta: SpeedrunDeltaInfo) => void;
 
@@ -882,12 +888,20 @@ export class GameEngine {
 
   // --- 1. HIGH-DPI RETINA CALIBRATION ---
 
-  /** Calibrate Canvas Resolution for 4K, Apple Retina, and AMOLED mobile screens */
+  /** Calibrate Canvas Resolution for true mobile & desktop full-screen without overflow */
   public calibrateRetinaDPI() {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const rect = this.canvas.getBoundingClientRect();
-    const cssWidth = rect.width > 0 ? rect.width : window.innerWidth || 1200;
-    const cssHeight = rect.height > 0 ? rect.height : window.innerHeight || 600;
+    const vv = window.visualViewport;
+    const cssWidth = Math.floor(vv?.width || window.innerWidth || document.documentElement.clientWidth || 390);
+    const cssHeight = Math.floor(vv?.height || window.innerHeight || document.documentElement.clientHeight || 844);
+
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
+    this.canvas.style.position = 'fixed';
+    this.canvas.style.top = '0';
+    this.canvas.style.left = '0';
+    this.canvas.style.right = '0';
+    this.canvas.style.bottom = '0';
 
     this.canvas.width = Math.floor(cssWidth * this.dpr);
     this.canvas.height = Math.floor(cssHeight * this.dpr);
@@ -1369,6 +1383,7 @@ export class GameEngine {
                 bac.health = Math.max(0, bac.health - deflectedDmg);
                 bac.hitStaggerTimer = 12;
                 hitAnyTarget = true;
+                this.registerCombatHit(deflectedDmg, 'MELEE', ent.position);
                 if (bac.health <= 0) {
                   this.handleEnemyDefeat(ent, bac, baseAngle);
                 }
@@ -1389,6 +1404,7 @@ export class GameEngine {
           bac.hitStaggerTimer = 18;
           bac.state = 'STAGGER';
           sound.playHit();
+          this.registerCombatHit(baseDamage, comboEval.isCriticalFinisher || isRhythmHit ? 'CRITICAL' : 'MELEE', ent.position);
 
           // Screen-impact freezing (30-50ms) + Directional Screenshake
           this.triggerHitstop(isRhythmHit || comboEval.isCriticalFinisher ? 55 : 35 + combo * 6);
@@ -1652,6 +1668,7 @@ export class GameEngine {
           bac.hitStaggerTimer = 18;
           bac.state = 'STAGGER';
           checkEnemySurrender(bac);
+          this.registerCombatHit(finalDamage, 'HEAVY', ent.position);
 
           // Electric arc particles along line
           this.createElectricChainParticles(lastPoint.x, lastPoint.y, ent.position.x, ent.position.y, '#00FF66');
@@ -2357,7 +2374,10 @@ export class GameEngine {
         Math.floor(this.player.integrity),
         Math.floor(this.player.energy),
         !!this.player.isFallingIntoAbyss,
-        this.player.fallDepthMeters || 0
+        this.player.fallDepthMeters || 0,
+        this.comboTimer,
+        this.maxComboTimer,
+        this.lastCombatHitTimestamp
       );
     }
 
@@ -2482,6 +2502,9 @@ export class GameEngine {
       this.comboCount += 15;
       this.comboMultiplier = Math.min(15, this.comboMultiplier + 4);
       this.comboTimer = 400;
+      this.maxComboTimer = 400;
+      this.lastCombatHitTimestamp = Date.now();
+      sound.playCombatComboHit(this.comboCount);
 
       this.triggerHitstop(80);
       this.applyDirectionalScreenShake(45, impactAngle);
@@ -2517,6 +2540,9 @@ export class GameEngine {
       this.comboCount += 6;
       this.comboMultiplier = Math.min(12, this.comboMultiplier + 2);
       this.comboTimer = 320;
+      this.maxComboTimer = 320;
+      this.lastCombatHitTimestamp = Date.now();
+      sound.playCombatComboHit(this.comboCount);
 
       this.triggerHitstop(55);
       this.applyDirectionalScreenShake(30, impactAngle);
@@ -2539,6 +2565,9 @@ export class GameEngine {
     this.comboCount += 2;
     this.comboMultiplier = Math.min(8, 1 + Math.floor(this.comboCount / 3));
     this.comboTimer = 280;
+    this.maxComboTimer = 280;
+    this.lastCombatHitTimestamp = Date.now();
+    sound.playCombatComboHit(this.comboCount);
 
     this.triggerHitstop(45);
     this.applyDirectionalScreenShake(24, impactAngle);
@@ -2556,6 +2585,57 @@ export class GameEngine {
     const rand = Math.random();
     const dropType: CollectibleType = rand < 0.12 ? 'WEAPON_TECH_PART' : rand < 0.65 ? 'BLOOD_PLASMA_CELL' : 'METALLIC_GOLD';
     this.spawnDrop(ent.position.x, ent.position.y, dropType);
+  }
+
+  /**
+   * Registers a successful combat attack hit against an enemy.
+   * Increments dynamic combo streak, calculates multiplier, resets decay timer,
+   * triggers pitch-escalating synth audio and canvas floating indicators.
+   */
+  public registerCombatHit(
+    damage: number,
+    hitType: 'PROJECTILE' | 'MELEE' | 'HEAVY' | 'DASH' | 'CRITICAL' | 'STEALTH' = 'PROJECTILE',
+    worldPos?: Vector2D
+  ) {
+    const isCrit = hitType === 'CRITICAL' || hitType === 'STEALTH';
+    const streakBonus = isCrit ? 2 : 1;
+    this.comboCount += streakBonus;
+    this.comboMultiplier = Math.min(12, 1 + Math.floor(this.comboCount / 3));
+    this.maxComboTimer = 240;
+    this.comboTimer = this.maxComboTimer;
+    this.lastCombatHitTimestamp = Date.now();
+    this.lastCombatHitType = hitType;
+
+    // Award bonus score based on active combo multiplier
+    this.score += Math.round(damage * 8 * this.comboMultiplier);
+
+    if (this.comboCount > this.maxComboInRun) {
+      this.maxComboInRun = this.comboCount;
+    }
+
+    // Report progress to daily mission
+    dailyMissionManager.reportProgress('COMBO_OVERDRIVE', this.comboCount, true);
+
+    // Play pitch-escalating synth combat combo audio
+    sound.playCombatComboHit(this.comboCount);
+
+    // Canvas floating combat text feedback at target
+    if (worldPos && this.comboCount >= 2) {
+      let streakColor = '#00FFD1';
+      if (this.comboCount >= 35) streakColor = '#00FFFF';
+      else if (this.comboCount >= 20) streakColor = '#FF00E5';
+      else if (this.comboCount >= 10) streakColor = '#FF5500';
+      else if (this.comboCount >= 5) streakColor = '#FFD700';
+
+      if (this.comboCount % 2 === 0 || this.comboCount === 3 || this.comboCount === 5 || isCrit) {
+        this.addFloatingText(
+          worldPos.x,
+          worldPos.y - 36,
+          `⚡ COMBO x${this.comboCount}!`,
+          streakColor
+        );
+      }
+    }
   }
 
   private bossWarningCooldown: number = 0;
@@ -2881,6 +2961,7 @@ export class GameEngine {
           bac.state = 'STAGGER';
           checkEnemySurrender(bac);
           sound.playHit();
+          this.registerCombatHit(dashDmg, 'DASH', ent.position);
 
           this.triggerHitstop(45);
           this.applyDirectionalScreenShake(26, this.player.angle);
@@ -3114,6 +3195,7 @@ export class GameEngine {
             bac.state = 'STAGGER';
             checkEnemySurrender(bac);
             sound.playHit();
+            this.registerCombatHit(bolt.damage, bolt.isCriticalFinisher ? 'CRITICAL' : 'PROJECTILE', ent.position);
 
             const boltAngle = Math.atan2(bolt.velocity.y, bolt.velocity.x);
 
@@ -5410,6 +5492,9 @@ export class GameEngine {
       this.comboCount += 5;
       this.comboMultiplier = Math.min(12, this.comboMultiplier + 2);
       this.comboTimer = 350;
+      this.maxComboTimer = 350;
+      this.lastCombatHitTimestamp = Date.now();
+      sound.playCombatComboHit(this.comboCount);
 
       this.addFloatingText(
         ent.position.x,

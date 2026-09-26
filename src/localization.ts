@@ -205,6 +205,17 @@ export interface TranslationDictionary {
   tacticalPing: string;
   multiplayerSquad: string;
   vercelDeployGuide: string;
+  comboStreakTitle: string;
+  comboSuperTitle: string;
+  comboHyperTitle: string;
+  comboUltraTitle: string;
+  comboGodlikeTitle: string;
+  comboChain: string;
+  comboTimeLeft: string;
+  rotateDeviceTitle: string;
+  rotateDeviceDesc: string;
+  rotateDeviceBtn: string;
+  rotateDismiss: string;
 }
 
 export const translations: Record<Language, TranslationDictionary> = {
@@ -403,6 +414,17 @@ export const translations: Record<Language, TranslationDictionary> = {
     tacticalPing: 'TACTICAL PING',
     multiplayerSquad: 'MULTIPLAYER SQUAD',
     vercelDeployGuide: 'VERCEL DEPLOY',
+    comboStreakTitle: 'COMBAT CHAIN',
+    comboSuperTitle: 'SUPER COMBO!',
+    comboHyperTitle: 'HYPER CARNAGE!',
+    comboUltraTitle: 'ULTRA OVERDRIVE!!',
+    comboGodlikeTitle: 'APEX GODLIKE!!',
+    comboChain: 'STRIKE CHAIN',
+    comboTimeLeft: 'COMBO DECAY',
+    rotateDeviceTitle: 'ROTATE DEVICE TO LANDSCAPE',
+    rotateDeviceDesc: 'Please turn your device sideways into Landscape mode for full-screen tactical combat and optimal controls.',
+    rotateDeviceBtn: 'LOCK LANDSCAPE MODE',
+    rotateDismiss: 'CONTINUE ANYWAY',
   },
 
   MY: {
@@ -600,6 +622,17 @@ export const translations: Record<Language, TranslationDictionary> = {
     tacticalPing: 'စစ်ဗျူဟာ အချက်ပြ (PING)',
     multiplayerSquad: 'အဖွဲ့လိုက် ကစားမည်',
     vercelDeployGuide: 'VERCEL တင်ရန် လမ်းညွှန်',
+    comboStreakTitle: 'တိုက်ခိုက်မှု ကွန်ဘို',
+    comboSuperTitle: 'အထူး ကွန်ဘို!',
+    comboHyperTitle: 'ပြင်းထန် ကွန်ဘို!',
+    comboUltraTitle: 'အဆုံးစွန် အိုဗာဒရိုက်ဗ်!!',
+    comboGodlikeTitle: 'ဘုရားသခင်အဆင့် ကွန်ဘို!!',
+    comboChain: 'ထိချက် ဆက်တိုက်',
+    comboTimeLeft: 'ကွန်ဘို သက်တမ်း',
+    rotateDeviceTitle: 'ဖုန်းကို ဘေးတိုက် (Landscape) လှည့်ပေးပါ',
+    rotateDeviceDesc: 'စစ်မြေပြင်မြင်ကွင်း အပြည့်အဝရရှိစေရန်နှင့် လက်နှစ်ဖက်ဖြင့် ကောင်းမွန်စွာ ထိန်းချုပ်နိုင်ရန် ဖုန်းကို ဘေးတိုက်လှည့်၍ ကစားပေးပါ။',
+    rotateDeviceBtn: 'LANDSCAPE သို့ ပြောင်းမည်',
+    rotateDismiss: 'ဆက်လက်ကစားမည်',
   },
 };
 

@@ -106,8 +106,20 @@ export const StartScreen: React.FC<StartScreenProps> = ({
             <span>{t.highFidelityEngine}</span>
           </div>
 
-          {/* Tactical Combat Dossier Grid (Operative vs Bio-Hazard vs Objective) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 w-full max-w-xl mb-3 pointer-events-none">
+          {/* Mobile Sleek 1-Line Operative Status Bar */}
+          <div className="flex sm:hidden items-center justify-between w-full max-w-xl px-2.5 py-1.5 mb-2 bg-black/70 border border-cyan-500/30 rounded text-[9px] font-bold pointer-events-none">
+            <div className="flex items-center gap-1.5 text-cyan-300">
+              <Shield size={12} className="text-[#00FFD1]" />
+              <span>{t.cyborgNinja}</span>
+            </div>
+            <div className="text-emerald-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>{t.plasmaKatanaReady}</span>
+            </div>
+          </div>
+
+          {/* Desktop Tactical Combat Dossier Grid (Operative vs Bio-Hazard vs Objective) */}
+          <div className="hidden sm:grid sm:grid-cols-3 gap-2 sm:gap-3 w-full max-w-xl mb-3 pointer-events-none">
             {/* Operative Spec Card */}
             <div className="flex items-center gap-2.5 bg-black/80 border border-cyan-500/40 p-2 sm:p-2.5 rounded shadow-[0_0_15px_rgba(0,255,209,0.15)]">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded bg-cyan-950/60 border border-cyan-400 flex items-center justify-center text-cyan-300 shrink-0 shadow-[0_0_10px_rgba(0,255,209,0.4)]">

@@ -47,6 +47,7 @@ export class ThreeSceneManager {
   public renderer: THREE.WebGLRenderer;
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
+  private baseAdaptiveFov: number = 66;
 
   // Post-Processing Pipeline
   public composer: EffectComposer;
@@ -4094,15 +4095,24 @@ export class ThreeSceneManager {
     const velY = player.velocity.y;
     const speed = Math.hypot(velX, velY);
 
-    // Over-The-Shoulder Lateral Offset (Right Shoulder Bias)
-    const shoulderOffsetDist = isCovered ? 12 : isCrouching ? 14 : 18;
+    // High-Angle Top-Down Over-The-Shoulder Dimensions
+    // Responsive camera framing for both portrait and landscape mobile screens
+    const isMobileScreen = typeof window !== 'undefined' && (window.innerHeight < 600 || window.innerWidth < 900);
+    const isPortrait = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+
+    // Over-The-Shoulder Lateral Offset (Subtle in portrait to keep hero centered, right-biased in landscape)
+    const shoulderOffsetDist = isPortrait ? 5 : (isCovered ? 10 : isCrouching ? 12 : 16);
     const shoulderX = shoulderOffsetDist;
 
-    // High-Angle Top-Down Over-The-Shoulder Dimensions
-    // Camera is elevated well above the player's head level (head ~42), pitching downward into the screen
-    const camDist = isDashing ? 155 : isCovered ? 115 : isCrouching ? 120 : 135;
-    const camHeight = (isDashing ? 128 : isCovered ? 98 : isCrouching ? 95 : 115) + (screenShake > 0 ? (Math.random() - 0.5) * screenShake * 0.3 : 0);
-    const forwardLeadDist = isDashing ? 85 : 65;
+    // Portrait mode pulls camera back and up slightly so the full corridor and enemies are framed cleanly without distortion
+    const portraitDistScale = isPortrait ? 1.34 : 1.0;
+    const portraitHeightScale = isPortrait ? 1.22 : 1.0;
+
+    const baseCamDist = (isDashing ? 165 : isCovered ? 122 : isCrouching ? 128 : 142) + (isMobileScreen ? 14 : 0);
+    const baseCamHeight = (isDashing ? 136 : isCovered ? 106 : isCrouching ? 102 : 122) + (isMobileScreen ? 10 : 0) + (screenShake > 0 ? (Math.random() - 0.5) * screenShake * 0.3 : 0);
+    const camDist = baseCamDist * portraitDistScale;
+    const camHeight = baseCamHeight * portraitHeightScale;
+    const forwardLeadDist = ((isDashing ? 90 : 70) + (isMobileScreen ? 10 : 0)) * (isPortrait ? 1.15 : 1.0);
 
     // Directional Screen Shake Offset in 3D Space
     let shakeX = 0;
@@ -4117,9 +4127,9 @@ export class ThreeSceneManager {
     }
 
     // Velocity Lookahead Vector in Forward Direction
-    const maxLookahead = isDashing ? 50 : 25;
-    const lookaheadX = speed > 0.2 ? (velX / speed) * Math.min(speed * 3.5, maxLookahead) : 0;
-    const lookaheadZ = speed > 0.2 ? (velY / speed) * Math.min(speed * 3.5, maxLookahead) : 0;
+    const maxLookahead = isDashing ? 45 : 22;
+    const lookaheadX = speed > 0.2 ? (velX / speed) * Math.min(speed * 3.0, maxLookahead) : 0;
+    const lookaheadZ = speed > 0.2 ? (velY / speed) * Math.min(speed * 3.0, maxLookahead) : 0;
 
     // Initialize camera position over the shoulder on first frame
     if (!this.cameraInitialized) {
@@ -4129,7 +4139,7 @@ export class ThreeSceneManager {
         pz + camDist
       );
       this.smoothedLookAt.set(
-        px + shoulderX * 0.25,
+        px + shoulderX * 0.2,
         12,
         pz - forwardLeadDist
       );
@@ -4140,10 +4150,11 @@ export class ThreeSceneManager {
     const maxTimer = player.fallingMaxTimer || 75;
     const fallProg = isFalling ? Math.min(1.0, (maxTimer - (player.fallingTimer || 0)) / maxTimer) : 0;
 
-    // Dynamic FOV for Over-The-Shoulder High-Angle Clarity + Vertigo Abyss Expansion
+    // Stable, natural perspective FOV: Never stretch beyond human vision
+    const baseFov = this.baseAdaptiveFov || (isPortrait ? 58 : 60);
     const targetFov = isFalling
-      ? (62 + fallProg * 26)
-      : isDashing ? 62 : isCovered ? 52 : isCrouching ? 54 : 56;
+      ? (baseFov + 10 + fallProg * 26)
+      : isDashing ? (baseFov + 4) : isCovered ? (baseFov - 3) : isCrouching ? (baseFov - 2) : baseFov;
     this.camera.fov += (targetFov - this.camera.fov) * (isFalling ? 0.22 : 0.08);
     this.camera.updateProjectionMatrix();
 
@@ -8627,20 +8638,22 @@ export class ThreeSceneManager {
     const aspect = width / height;
     this.camera.aspect = aspect;
 
-    // Dynamic Adaptive FOV for mobile landscapes (16:9, 19.5:9, 20:9, 21:9) and compact screens
-    const baseFov = 65;
-    const targetAspect = 16 / 9;
-    if (aspect < targetAspect) {
-      // Narrower screen (portrait or tablet): increase FOV dynamically to preserve playable horizontal battlefield
-      const hFov = 2 * Math.atan(Math.tan((baseFov * Math.PI) / 360) * targetAspect);
-      this.camera.fov = (2 * Math.atan(Math.tan(hFov / 2) / aspect) * 180) / Math.PI;
-    } else {
-      // Standard or Ultra-wide mobile landscape
-      this.camera.fov = baseFov;
-    }
+    const isPortrait = height > width;
+    const isMobile = Math.min(width, height) < 600 || width < 900;
+
+    // Natural human perspective FOV (58° portrait, 60° landscape)
+    // Never balloon FOV to 138° which caused fish-eye distortion and graphics overflow
+    this.baseAdaptiveFov = isPortrait ? 58 : isMobile ? 60 : 58;
+    this.camera.fov = this.baseAdaptiveFov;
     this.camera.updateProjectionMatrix();
 
     this.overlayCanvas.width = Math.floor(width * dpr);
     this.overlayCanvas.height = Math.floor(height * dpr);
+    this.overlayCanvas.style.width = '100%';
+    this.overlayCanvas.style.height = '100%';
+    this.overlayCanvas.style.position = 'fixed';
+    this.overlayCanvas.style.top = '0';
+    this.overlayCanvas.style.left = '0';
+    this.overlayCanvas.style.pointerEvents = 'none';
   }
 }

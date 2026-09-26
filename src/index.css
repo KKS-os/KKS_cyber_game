@@ -118,3 +118,133 @@
 .glitch-text {
   animation: glitch-skew 3s infinite ease-in-out;
 }
+
+/* Combat Combo Feedback Dynamic Animations */
+@keyframes combo-pop {
+  0% {
+    transform: scale(1.36) translateY(-3px);
+    filter: brightness(1.6) saturate(1.4);
+  }
+  45% {
+    transform: scale(0.96) translateY(1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+@keyframes combo-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-2px, 1px) rotate(-1deg); }
+  50% { transform: translate(2px, -1px) rotate(1deg); }
+  75% { transform: translate(-1px, -1px) rotate(0.5deg); }
+}
+
+@keyframes combo-fire {
+  0%, 100% {
+    text-shadow: 0 0 10px #ff0055, 0 0 20px #ff5500, 0 0 30px #ffd700;
+  }
+  50% {
+    text-shadow: 0 0 16px #ffd700, 0 0 30px #ff0055, 0 0 45px #ff00e5;
+  }
+}
+
+.animate-combo-pop {
+  animation: combo-pop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-combo-shake {
+  animation: combo-shake 0.3s ease-in-out infinite;
+}
+
+.animate-combo-fire {
+  animation: combo-fire 0.7s ease-in-out infinite;
+}
+
+/* --- FULL-SCREEN RESPONSIVE MOBILE & PC WEB GAME LAYOUT --- */
+html, body, #root, #game-viewport {
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  inset: 0 !important;
+  background-color: #060312;
+}
+
+#game-canvas, #game-overlay-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  position: fixed !important;
+  inset: 0 !important;
+  display: block !important;
+  touch-action: none !important;
+}
+
+/* Main Game Box / UI Stage: True Mobile & Desktop Full-Screen Stage with Safe-Area Insets */
+#game-main-box {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  overscroll-behavior: none !important;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* Safe-area insets calculation utility classes */
+.safe-area-box {
+  padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
+  padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+}
+
+.safe-area-x {
+  padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+}
+
+.safe-area-y {
+  padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Phone rotation animation for landscape orientation prompt */
+@keyframes phone-rotate-landscape {
+  0%, 20% {
+    transform: rotate(0deg);
+  }
+  50%, 80% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-rotate-phone {
+  animation: phone-rotate-landscape 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+

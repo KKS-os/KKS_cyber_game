@@ -34,6 +34,7 @@ import {
 } from '../types';
 import { RadarMinimap } from './RadarMinimap';
 import { DailyMissionHUD } from './DailyMissionHUD';
+import { CombatComboFeedback } from './CombatComboFeedback';
 import { Language, getTranslation } from '../localization';
 
 interface HUDProps {
@@ -42,6 +43,9 @@ interface HUDProps {
   highScore: number;
   comboCount: number;
   comboMultiplier: number;
+  comboTimer?: number;
+  maxComboTimer?: number;
+  lastCombatHitTime?: number;
   integrity: number;
   isPaused: boolean;
   hasShield: boolean;
@@ -71,6 +75,9 @@ export const HUD: React.FC<HUDProps> = ({
   highScore,
   comboCount,
   comboMultiplier,
+  comboTimer = 0,
+  maxComboTimer = 240,
+  lastCombatHitTime = 0,
   integrity,
   isPaused,
   hasShield,
@@ -119,7 +126,12 @@ export const HUD: React.FC<HUDProps> = ({
     <header
       id="game-hud"
       aria-label="Tactical Game Overlay"
-      className="fixed inset-x-0 top-0 pointer-events-none z-30 select-none font-mono-tech"
+      style={{
+        paddingLeft: 'max(0.5rem, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(0.5rem, env(safe-area-inset-right, 0px))',
+        paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0px))',
+      }}
+      className="absolute inset-x-0 top-0 w-full min-w-full max-w-none pointer-events-none z-30 select-none font-mono-tech"
     >
       {/* Top Banner Grid */}
       <div className="flex items-center justify-between px-2 sm:px-4 md:px-8 py-1.5 sm:py-2 bg-gradient-to-b from-[#020108]/95 via-[#020108]/85 to-transparent border-b border-[#00FFD1]/20">
@@ -226,9 +238,9 @@ export const HUD: React.FC<HUDProps> = ({
             </span>
           </div>
 
-          {/* Interactive Controls Bar */}
+          {/* Interactive Controls Bar: Full Bar on Desktop, Compact Core Controls on Mobile */}
           <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
-            {/* Language Switcher Button */}
+            {/* Desktop Only Auxiliary Controls */}
             {onToggleLanguage && (
               <button
                 id="hud-language-toggle"
@@ -236,7 +248,7 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={onToggleLanguage}
                 aria-label="Switch Language (မြန်မာ / English)"
                 title="Switch Language (မြန်မာ / English)"
-                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-cyan-400/40 bg-[#050505] hover:bg-cyan-500/20 text-[#00FFD1] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+                className="hidden sm:flex h-6 sm:h-7 px-1.5 sm:px-2 items-center gap-1 border border-cyan-400/40 bg-[#050505] hover:bg-cyan-500/20 text-[#00FFD1] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
               >
                 <Globe size={11} />
                 <span>{currentLang === 'MY' ? '🇲🇲 MY' : '🇬🇧 EN'}</span>
@@ -251,10 +263,10 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={onOpenTacticalPing}
                 aria-label="Tactical Ping (T)"
                 title="Tactical Squad Ping (T)"
-                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-amber-400/60 bg-amber-950/30 hover:bg-amber-400 hover:text-black text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+                className="hidden md:flex h-6 sm:h-7 px-1.5 sm:px-2 items-center gap-1 border border-amber-400/60 bg-amber-950/30 hover:bg-amber-400 hover:text-black text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
               >
                 <Radio size={11} className="text-amber-400 animate-pulse shrink-0" />
-                <span className="hidden xs:inline sm:inline">{t.tacticalPing}</span>
+                <span>{t.tacticalPing}</span>
               </button>
             )}
 
@@ -266,10 +278,10 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={onOpenMultiplayer}
                 aria-label="Multiplayer Squad"
                 title="Multiplayer Squad"
-                className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-cyan-400/60 bg-cyan-950/30 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] shadow-[0_0_10px_rgba(0,255,209,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
+                className="hidden md:flex h-6 sm:h-7 px-1.5 sm:px-2 items-center gap-1 border border-cyan-400/60 bg-cyan-950/30 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] shadow-[0_0_10px_rgba(0,255,209,0.3)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8px] sm:text-[9px] font-bold uppercase"
               >
                 <Users size={11} className="text-[#00FFD1] shrink-0" />
-                <span className="hidden sm:inline">{t.multiplayerSquad}</span>
+                <span>{t.multiplayerSquad}</span>
               </button>
             )}
 
@@ -283,35 +295,51 @@ export const HUD: React.FC<HUDProps> = ({
               className="h-6 sm:h-7 px-1.5 sm:px-2 flex items-center gap-1 border border-[#00FFD1] bg-[#00FFD1]/20 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.5)] transition-all cursor-pointer touch-manipulation font-mono-tech text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider"
             >
               <HelpCircle size={12} className="text-[#00FFD1] animate-pulse shrink-0" />
-              <span className="hidden xs:inline sm:inline">{t.guideBtn}</span>
+              <span className="hidden sm:inline">{t.guideBtn}</span>
             </button>
 
+            {/* Sound Toggle (Desktop) */}
             <button
               id="hud-sound-toggle"
               type="button"
               onClick={onToggleSound}
               aria-label="Toggle SFX"
-              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border border-[#00FFD1]/40 hover:border-[#00FFD1] hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
+              className="hidden sm:flex w-6 h-6 sm:w-7 sm:h-7 items-center justify-center border border-[#00FFD1]/40 hover:border-[#00FFD1] hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
             >
               {settings.soundEnabled ? <Volume2 size={12} /> : <VolumeX size={12} className="opacity-40" />}
             </button>
 
+            {/* Music Toggle (Desktop) */}
             <button
               id="hud-music-toggle"
               type="button"
               onClick={onToggleMusic}
               aria-label="Toggle Synth BGM"
-              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border border-[#FF00E5]/40 hover:border-[#FF00E5] hover:bg-[#FF00E5] hover:text-black text-[#FF00E5] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
+              className="hidden sm:flex w-6 h-6 sm:w-7 sm:h-7 items-center justify-center border border-[#FF00E5]/40 hover:border-[#FF00E5] hover:bg-[#FF00E5] hover:text-black text-[#FF00E5] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
             >
               <Music size={12} className={settings.musicEnabled ? 'opacity-100' : 'opacity-40'} />
             </button>
 
+            {/* Mobile Quick Language Toggle */}
+            {onToggleLanguage && (
+              <button
+                id="hud-mobile-lang-btn"
+                type="button"
+                onClick={onToggleLanguage}
+                aria-label="Toggle Language"
+                className="flex sm:hidden w-6 h-6 items-center justify-center border border-cyan-400/40 text-[9px] font-bold text-[#00FFD1] bg-[#050505] cursor-pointer touch-manipulation"
+              >
+                {currentLang === 'MY' ? '🇲🇲' : 'EN'}
+              </button>
+            )}
+
+            {/* Pause Button - Always Visible on All Viewports */}
             <button
               id="hud-pause-btn"
               type="button"
               onClick={onTogglePause}
               aria-label="Pause Game (P)"
-              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border border-[#00FF66]/40 hover:border-[#00FF66] hover:bg-[#00FF66] hover:text-black text-[#00FF66] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
+              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border border-[#00FF66]/50 hover:border-[#00FF66] hover:bg-[#00FF66] hover:text-black text-[#00FF66] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
             >
               {isPaused ? <Play size={12} /> : <Pause size={12} />}
             </button>
@@ -323,11 +351,14 @@ export const HUD: React.FC<HUDProps> = ({
       {settings.minimapEnabled !== false && (
         <div
           id="hud-minimap-anchor"
-          className="absolute top-[50px] sm:top-[56px] left-2 sm:left-4 md:left-8 z-30 pointer-events-auto flex flex-col items-start"
+          style={{
+            left: 'max(0.5rem, env(safe-area-inset-left, 0px))',
+          }}
+          className="absolute top-[32px] sm:top-[42px] md:top-[50px] z-30 pointer-events-auto flex flex-col items-start"
         >
           <RadarMinimap
             getTelemetry={getRadarTelemetry}
-            size={88}
+            size={typeof window !== 'undefined' && (window.innerHeight < 600 || window.innerWidth < 640) ? 50 : 76}
           />
         </div>
       )}
@@ -335,13 +366,26 @@ export const HUD: React.FC<HUDProps> = ({
       {/* Top-Right Floating Daily Mission Directive Tracker */}
       <div
         id="hud-daily-mission-anchor"
-        className="absolute top-[50px] sm:top-[56px] right-2 sm:right-4 md:right-8 z-30 pointer-events-auto flex flex-col items-end max-w-[150px] sm:max-w-xs"
+        style={{
+          right: 'max(0.5rem, env(safe-area-inset-right, 0px))',
+        }}
+        className="absolute top-[32px] sm:top-[42px] md:top-[50px] z-30 pointer-events-auto hidden xs:flex flex-col items-end max-w-[120px] sm:max-w-xs"
       >
         <DailyMissionHUD />
       </div>
 
+      {/* Dynamic Animated Combat Combo Feedback Counter */}
+      <CombatComboFeedback
+        comboCount={comboCount}
+        comboMultiplier={comboMultiplier}
+        comboTimer={comboTimer}
+        maxComboTimer={maxComboTimer}
+        language={currentLang}
+        lastHitTime={lastCombatHitTime}
+      />
+
       {/* Sub-Header: Active Buffs, Multiplier & Rhythm Streak */}
-      <div className="flex items-center justify-between pl-26 sm:pl-32 md:pl-36 pr-26 sm:pr-32 md:pr-36 py-1 pointer-events-none flex-wrap gap-1">
+      <div className="flex items-center justify-between px-2 sm:px-4 md:px-8 py-0.5 pointer-events-none flex-wrap gap-1 max-w-full overflow-hidden">
         <div className="flex items-center gap-1.5 flex-wrap">
           {comboCount > 0 && (
             <div className="border border-[#FF00E5] bg-[#0A0A0A]/90 px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-mono-tech text-[#FF00E5] flex items-center gap-1 shadow-[0_0_12px_rgba(255,0,229,0.4)] animate-pulse">
@@ -452,7 +496,7 @@ export const HUD: React.FC<HUDProps> = ({
           style={{
             bottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))',
           }}
-          className="fixed left-1/2 -translate-x-1/2 max-w-[calc(100vw-250px)] sm:max-w-none flex items-center gap-1 sm:gap-1.5 p-0.5 sm:p-1 bg-[#060312]/95 border border-[#00FFD1]/40 shadow-[0_0_20px_rgba(0,255,209,0.25)] pointer-events-auto z-30 font-mono-tech select-none backdrop-blur-md overflow-x-auto scrollbar-none"
+          className="absolute left-1/2 -translate-x-1/2 max-w-[calc(100vw-250px)] sm:max-w-none flex items-center gap-1 sm:gap-1.5 p-0.5 sm:p-1 bg-[#060312]/95 border border-[#00FFD1]/40 shadow-[0_0_20px_rgba(0,255,209,0.25)] pointer-events-auto z-30 font-mono-tech select-none backdrop-blur-md overflow-x-auto scrollbar-none"
         >
           {(Object.entries(weaponArsenal) as [WeaponType, WeaponInfo][]).map(([key, w], idx) => {
             const wType = key;

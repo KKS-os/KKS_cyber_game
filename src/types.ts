@@ -1383,10 +1383,13 @@ export interface RemotePlayerState {
   angle: number;
   health: number;
   maxHealth: number;
+  integrity?: number;
+  maxIntegrity?: number;
   isCrouching: boolean;
   isCovered: boolean;
   isSlashing: boolean;
   isShooting: boolean;
+  isBlasting?: boolean;
   isDashing: boolean;
   isFallingIntoAbyss: boolean;
   activeWeapon: WeaponType;
@@ -1412,17 +1415,19 @@ export type MultiplayerMessageType =
 export interface MultiplayerPacket {
   type: MultiplayerMessageType;
   senderId: string;
-  senderName: string;
+  senderName?: string;
   timestamp: number;
-  data: any;
+  data?: any;
+  payload?: any;
 }
 
 export interface TacticalPingMessage {
   id: string;
   senderId: string;
   senderName: string;
-  text: string;
-  category: 'RUSH' | 'COVER' | 'BACKUP' | 'CORE' | 'DANGER';
+  text?: string;
+  category?: 'RUSH' | 'COVER' | 'BACKUP' | 'CORE' | 'DANGER';
+  pingType?: 'DANGER' | 'OBJECTIVE' | 'REGROUP' | 'AMMO' | 'ASSIST' | 'RUSH' | 'COVER' | 'BACKUP' | 'CORE';
   x: number;
   y: number;
   timestamp: number;

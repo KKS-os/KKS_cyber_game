@@ -7,12 +7,13 @@ import {
   Radio,
   X,
   Play,
-  Share2,
   AlertTriangle,
-  Shield,
-  Palette,
+  Flame,
+  Globe,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
-import { multiplayer } from '../multiplayerManager';
+import { multiplayer, FirebaseLobbyRoom } from '../multiplayerManager';
 import { MultiplayerRoomInfo } from '../types';
 import { Language, getTranslation } from '../localization';
 import { sound } from '../audio';
@@ -40,13 +41,15 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
   const t = getTranslation(activeLang);
   const isMy = activeLang === 'MY';
 
-  const [activeTab, setActiveTab] = useState<'HOST' | 'JOIN'>('HOST');
+  const [activeTab, setActiveTab] = useState<'LIVE' | 'HOST' | 'JOIN'>('LIVE');
   const [playerName, setPlayerName] = useState(initialPlayerName);
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [roomInfo, setRoomInfo] = useState<MultiplayerRoomInfo | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [liveRooms, setLiveRooms] = useState<FirebaseLobbyRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
 
   // Check URL params for room code invite (e.g. ?room=CYBER-1234)
   useEffect(() => {
@@ -56,6 +59,16 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
       setInputRoomCode(roomFromUrl.toUpperCase());
       setActiveTab('JOIN');
     }
+  }, []);
+
+  // Listen to active live rooms from Firebase Firestore
+  useEffect(() => {
+    setLoadingRooms(true);
+    const unsub = multiplayer.listenToActiveLobbies((rooms) => {
+      setLiveRooms(rooms);
+      setLoadingRooms(false);
+    });
+    return () => unsub();
   }, []);
 
   // Listen to multiplayer network events
@@ -94,8 +107,9 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
     }
   };
 
-  const handleJoinRoom = async () => {
-    if (!inputRoomCode.trim()) {
+  const handleJoinRoom = async (codeToJoin?: string) => {
+    const targetCode = (codeToJoin || inputRoomCode).trim();
+    if (!targetCode) {
       setErrorBanner(isMy ? 'အခန်းကုဒ် (Room Code) ရိုက်ထည့်ပါ' : 'Please enter a Room Code');
       return;
     }
@@ -103,7 +117,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
       setIsConnecting(true);
       setErrorBanner(null);
       sound.playPowerup();
-      await multiplayer.joinRoom(inputRoomCode, playerName);
+      await multiplayer.joinRoom(targetCode, playerName);
     } catch (err: any) {
       setIsConnecting(false);
       setErrorBanner(err.message || 'Could not connect to room.');
@@ -134,15 +148,22 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
       <div className="relative w-full max-w-xl bg-[#070314] border-2 border-[#00FFD1] p-4 sm:p-6 shadow-[0_0_35px_rgba(0,255,209,0.35)] my-auto max-h-[92vh] overflow-y-auto">
 
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-[#00FFD1]/30 pb-3 mb-4">
-          <div className="flex items-center gap-2 text-[#00FFD1]">
-            <Users size={24} className="text-[#00FFD1] animate-pulse" />
+        <div className="flex items-center justify-between border-b border-[#00FFD1]/30 pb-3 mb-3">
+          <div className="flex items-center gap-2.5 text-[#00FFD1]">
+            <Users size={24} className="text-[#00FFD1] animate-pulse shrink-0" />
             <div>
-              <h2 className="text-base sm:text-lg font-black tracking-wider uppercase">
-                {t.multiplayerTitle}
-              </h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base sm:text-lg font-black tracking-wider uppercase">
+                  {t.multiplayerTitle}
+                </h2>
+                <span className="px-1.5 py-0.5 bg-[#FF00E5]/20 border border-[#FF00E5]/60 text-[#FF00E5] text-[8px] font-black rounded uppercase flex items-center gap-1">
+                  <Flame size={10} /> FIREBASE CLOUD
+                </span>
+              </div>
               <p className="text-[10px] text-cyan-300/70">
-                {t.multiplayerSubtitle}
+                {isMy
+                  ? 'Firebase Firestore ဖြင့် အချိန်နှင့်တပြေးညီ ချိတ်ဆက်ထားသော Squad Co-Op စနစ်'
+                  : 'Real-time Squad Co-Op synchronized via Firebase Cloud Firestore'}
               </p>
             </div>
           </div>
@@ -154,18 +175,29 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
           </button>
         </div>
 
+        {/* Firebase Live Cloud Status Pill */}
+        <div className="mb-3 px-2.5 py-1 bg-black/60 border border-emerald-500/40 rounded flex items-center justify-between text-[9px]">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>{isMy ? 'Firebase Cloud Database: ချိတ်ဆက်ထားပြီး' : 'Firebase Cloud Database: Active & Synced'}</span>
+          </div>
+          <span className="text-gray-400 font-mono">
+            {liveRooms.length} {isMy ? 'ခန်းဖွင့်ထားသည်' : 'Active Lobbies'}
+          </span>
+        </div>
+
         {/* Error Notification */}
         {errorBanner && (
-          <div className="mb-4 p-2.5 bg-red-950/80 border border-red-500 text-red-300 text-xs flex items-center gap-2">
+          <div className="mb-3 p-2.5 bg-red-950/80 border border-red-500 text-red-300 text-xs flex items-center gap-2">
             <AlertTriangle size={16} className="shrink-0 text-red-400" />
             <span>{errorBanner}</span>
           </div>
         )}
 
         {/* Player Customization (Call-Sign & Neon Hue) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-black/50 border border-white/10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4 p-2.5 bg-black/50 border border-white/10">
           <div>
-            <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1">
+            <label className="text-[9.5px] text-gray-400 uppercase font-bold block mb-1">
               {t.runnerCallsign}
             </label>
             <input
@@ -174,14 +206,14 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               disabled={isConnected}
-              className="w-full bg-[#020108] border border-[#00FFD1]/40 px-3 py-1.5 text-xs text-white uppercase focus:outline-none focus:border-[#00FFD1]"
+              className="w-full bg-[#020108] border border-[#00FFD1]/40 px-3 py-1 text-xs text-white uppercase focus:outline-none focus:border-[#00FFD1]"
               placeholder="RUNNER_01"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1 flex items-center justify-between">
-              <span>{isMy ? 'နီယွန် ဝတ်စုံအရောင် (NEON GLOW)' : 'NEON SUIT GLOW'}</span>
+            <label className="text-[9.5px] text-gray-400 uppercase font-bold block mb-1 flex items-center justify-between">
+              <span>{isMy ? 'နီယွန် ဝတ်စုံအရောင် (NEON SUIT)' : 'NEON SUIT GLOW'}</span>
               <span className="text-[#00FFD1]">{characterHue}°</span>
             </label>
             <div className="flex items-center gap-2">
@@ -190,7 +222,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
                 min="0"
                 max="360"
                 value={characterHue}
-                onChange={(e) => onCharacterHueChange(Number(e.target.value))}
+                onChange={(e) => onCharacterHueChange?.(Number(e.target.value))}
                 className="w-full accent-[#00FFD1] cursor-pointer"
               />
               <div
@@ -202,13 +234,13 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
         </div>
 
         {/* Active Connected Room State */}
-        {isConnected ? (
+        {isConnected && roomInfo ? (
           <div className="space-y-4">
             
             {/* Room Info Header */}
-            <div className="bg-[#020108] border-2 border-[#00FFD1] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-[#020108] border-2 border-[#00FFD1] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] text-gray-400 block uppercase font-bold">
+                <span className="text-[9.5px] text-gray-400 block uppercase font-bold">
                   {t.roomCode}
                 </span>
                 <div className="text-xl sm:text-2xl font-black text-[#00FFD1] tracking-widest font-mono">
@@ -224,7 +256,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyInviteLink}
-                  className="px-3 py-2 bg-[#00FFD1]/20 hover:bg-[#00FFD1] text-[#00FFD1] hover:text-black font-black text-xs transition-all flex items-center gap-1.5 border border-[#00FFD1]/40"
+                  className="px-3 py-2 bg-[#00FFD1]/20 hover:bg-[#00FFD1] text-[#00FFD1] hover:text-black font-black text-xs transition-all flex items-center gap-1.5 border border-[#00FFD1]/40 cursor-pointer"
                 >
                   {copiedLink ? <CheckCircle size={14} /> : <Copy size={14} />}
                   <span>{copiedLink ? t.inviteLinkCopied : t.copyInviteLink}</span>
@@ -234,14 +266,14 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
 
             {/* Squad Members List */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-bold text-gray-300 uppercase flex items-center gap-1.5">
                   <Users size={14} className="text-[#00FFD1]" />
                   {t.connectedRunners} ({1 + (roomInfo.connectedPeers?.length || 0)})
                 </span>
                 <span className="text-[10px] text-[#00FF66] flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[#00FF66] animate-ping" />
-                  {isMy ? 'အွန်လိုင်း ချိတ်ဆက်ထားသည်' : 'ONLINE P2P ACTIVE'}
+                  {isMy ? 'အချိန်နှင့်တပြေးညီ ချိတ်ဆက်ထားသည်' : 'FIREBASE CLOUD SYNC'}
                 </span>
               </div>
 
@@ -288,7 +320,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
             <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
               <button
                 onClick={onStartGame}
-                className="w-full sm:flex-1 py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 text-black font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2"
+                className="w-full sm:flex-1 py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 text-black font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Play size={16} />
                 <span>{t.launchMission}</span>
@@ -296,7 +328,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
 
               <button
                 onClick={handleLeaveRoom}
-                className="w-full sm:w-auto px-4 py-3 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/40 font-bold text-xs uppercase transition-all"
+                className="w-full sm:w-auto px-4 py-3 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/40 font-bold text-xs uppercase transition-all cursor-pointer"
               >
                 {t.leaveRoom}
               </button>
@@ -304,25 +336,37 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
 
           </div>
         ) : (
-          /* Disconnected State (Tabs for Host / Join) */
+          /* Disconnected State (Tabs: LIVE SQUADS / HOST / JOIN) */
           <div>
             {/* Tabs */}
-            <div className="grid grid-cols-2 gap-2 mb-4 border-b border-white/10 pb-3">
+            <div className="grid grid-cols-3 gap-1.5 mb-3 border-b border-white/10 pb-2.5">
+              <button
+                onClick={() => { setActiveTab('LIVE'); sound.playClick(); }}
+                className={`py-2 text-[10.5px] sm:text-xs font-bold uppercase tracking-wider transition-all border ${
+                  activeTab === 'LIVE'
+                    ? 'bg-[#00FFD1] text-black border-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.4)]'
+                    : 'bg-black/40 text-gray-400 border-white/10 hover:text-white'
+                }`}
+              >
+                {isMy ? 'အွန်လိုင်းအခန်းများ' : 'LIVE SQUADS'}
+              </button>
+
               <button
                 onClick={() => { setActiveTab('HOST'); sound.playClick(); }}
-                className={`py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
+                className={`py-2 text-[10.5px] sm:text-xs font-bold uppercase tracking-wider transition-all border ${
                   activeTab === 'HOST'
-                    ? 'bg-[#00FFD1] text-black border-[#00FFD1] shadow-[0_0_15px_rgba(0,255,209,0.4)]'
+                    ? 'bg-[#00FFD1] text-black border-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.4)]'
                     : 'bg-black/40 text-gray-400 border-white/10 hover:text-white'
                 }`}
               >
                 {t.hostRoom}
               </button>
+
               <button
                 onClick={() => { setActiveTab('JOIN'); sound.playClick(); }}
-                className={`py-2 text-xs font-bold uppercase tracking-wider transition-all border ${
+                className={`py-2 text-[10.5px] sm:text-xs font-bold uppercase tracking-wider transition-all border ${
                   activeTab === 'JOIN'
-                    ? 'bg-[#00FFD1] text-black border-[#00FFD1] shadow-[0_0_15px_rgba(0,255,209,0.4)]'
+                    ? 'bg-[#00FFD1] text-black border-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.4)]'
                     : 'bg-black/40 text-gray-400 border-white/10 hover:text-white'
                 }`}
               >
@@ -330,12 +374,81 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
               </button>
             </div>
 
-            {/* Tab 1: Host Room */}
+            {/* Tab 1: Live Squad Lobbies List */}
+            {activeTab === 'LIVE' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-gray-300">
+                  <span className="font-bold flex items-center gap-1.5 text-white">
+                    <Radio size={14} className="text-[#00FFD1] animate-pulse" />
+                    {isMy ? 'လက်ရှိဖွင့်ထားသော အခန်းများ' : 'Active Public Squad Rooms'}
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {liveRooms.length} {isMy ? 'ခန်းတွေ့ရှိ' : 'Found'}
+                  </span>
+                </div>
+
+                {loadingRooms ? (
+                  <div className="p-6 text-center text-cyan-300 text-xs flex items-center justify-center gap-2">
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>{isMy ? 'အခန်းများ ရှာဖွေနေသည်...' : 'Querying Firebase Lobbies...'}</span>
+                  </div>
+                ) : liveRooms.length > 0 ? (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {liveRooms.map((room) => (
+                      <div
+                        key={room.id}
+                        className="p-2.5 bg-black/60 border border-cyan-500/30 hover:border-[#00FFD1] flex items-center justify-between transition-colors"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-white text-xs text-[#00FFD1]">
+                              {room.id}
+                            </span>
+                            <span className="text-[10px] text-gray-300 font-bold">
+                              {room.name || `${room.hostName}'s Squad`}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-gray-400 mt-0.5">
+                            Host: <span className="text-white">{room.hostName}</span> • Stage {room.stage || 1}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleJoinRoom(room.id)}
+                          disabled={isConnecting}
+                          className="px-3 py-1.5 bg-[#00FFD1] hover:bg-white text-black font-black text-[10px] uppercase tracking-wider rounded transition-all shadow-[0_0_10px_rgba(0,255,209,0.3)] cursor-pointer"
+                        >
+                          {isMy ? 'ဝင်ရောက်မည်' : 'QUICK JOIN'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center bg-black/40 border border-dashed border-white/15 text-xs text-gray-400">
+                    <p className="mb-2 text-gray-300 font-bold">
+                      {isMy ? 'လတ်တလော ဖွင့်ထားသော အခန်းမရှိသေးပါ' : 'No Active Squad Lobbies Found'}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mb-3">
+                      {isMy ? 'ပထမဦးဆုံး အခန်းဖွင့်၍ သူငယ်ချင်းများကို ဖိတ်ခေါ်လိုက်ပါ!' : 'Be the first to host a squad room and invite your friends!'}
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('HOST')}
+                      className="px-4 py-1.5 bg-[#00FFD1]/20 hover:bg-[#00FFD1] text-[#00FFD1] hover:text-black border border-[#00FFD1]/50 text-xs font-bold uppercase transition-all cursor-pointer"
+                    >
+                      {isMy ? 'အခန်းအသစ်ဖွင့်မည်' : 'HOST A SQUAD'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Host Room */}
             {activeTab === 'HOST' && (
               <div className="space-y-4">
                 <div className="p-3 bg-black/40 border border-white/10 text-xs text-gray-300 leading-relaxed">
-                  <p className="mb-2 text-white font-bold">
-                    {isMy ? '📡 အခန်းအသစ်ဖွင့်၍ အခြားသူများနှင့် ကစားမည်' : '📡 Host a new Squad Room'}
+                  <p className="mb-1 text-white font-bold flex items-center gap-1.5">
+                    <Zap size={14} className="text-[#00FFD1]" />
+                    {isMy ? '📡 Firebase Cloud ပေါ်တွင် အခန်းအသစ်ဖွင့်မည်' : '📡 Host a new Squad Room on Firebase'}
                   </p>
                   <p className="text-[11px] text-gray-400">
                     {isMy
@@ -347,7 +460,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
                 <button
                   onClick={handleHostRoom}
                   disabled={isConnecting}
-                  className="w-full py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 disabled:opacity-50 text-black font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 disabled:opacity-50 text-black font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Radio size={16} className={isConnecting ? 'animate-spin' : ''} />
                   <span>{isConnecting ? (isMy ? 'အခန်းဖွင့်နေသည်...' : 'INITIALIZING HOST...') : t.hostRoom}</span>
@@ -355,7 +468,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
               </div>
             )}
 
-            {/* Tab 2: Join Room */}
+            {/* Tab 3: Join Room by Code */}
             {activeTab === 'JOIN' && (
               <div className="space-y-4">
                 <div>
@@ -372,9 +485,9 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
                 </div>
 
                 <button
-                  onClick={handleJoinRoom}
+                  onClick={() => handleJoinRoom()}
                   disabled={isConnecting || !inputRoomCode.trim()}
-                  className="w-full py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 disabled:opacity-50 text-black font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-[#00FFD1] hover:bg-[#00FFD1]/80 disabled:opacity-50 text-black font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_#00FFD1] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Wifi size={16} className={isConnecting ? 'animate-pulse' : ''} />
                   <span>{isConnecting ? (isMy ? 'ချိတ်ဆက်နေသည်...' : 'CONNECTING...') : t.joinRoom}</span>
@@ -385,10 +498,10 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
         )}
 
         {/* Footer */}
-        <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-end text-xs">
+        <div className="mt-4 pt-2.5 border-t border-white/10 flex items-center justify-end text-xs">
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors text-[11px]"
+            className="text-gray-400 hover:text-white transition-colors text-[11px] cursor-pointer"
           >
             {t.close}
           </button>

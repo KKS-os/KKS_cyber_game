@@ -4,6 +4,7 @@ import { GameStats, GameSettings, DeathCause } from '../types';
 import { DailyMissionCard } from './DailyMissionCard';
 import { dailyMissionManager } from '../dailyMissionSystem';
 import { Language, getTranslation } from '../localization';
+import { multiplayer } from '../multiplayerManager';
 
 interface GameOverModalProps {
   score: number;
@@ -36,6 +37,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const isNewHighScore = score >= highScore && score > 0;
   const formattedScore = score.toString().padStart(7, '0');
   const formattedHighScore = highScore.toString().padStart(7, '0');
+  const [submittedToFirebase, setSubmittedToFirebase] = React.useState(false);
+
+  React.useEffect(() => {
+    if (score > 0 && !submittedToFirebase) {
+      multiplayer.submitHighScore('CyberOperative', score, distance, 1, maxCombo).then(() => {
+        setSubmittedToFirebase(true);
+      });
+    }
+  }, [score, distance, maxCombo, submittedToFirebase]);
 
   const handleRestartTrigger = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();

@@ -1,0 +1,220 @@
+{
+  "entities": {
+    "MultiplayerRoom": {
+      "title": "MultiplayerRoom",
+      "description": "Real-time squad co-op room session for multiplayer matchmaking and lobby presence",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique room code identifier, e.g. CYBER-9421"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable squad room name"
+        },
+        "hostId": {
+          "type": "string",
+          "description": "UID of the room host player"
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display nickname of the host"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["WAITING", "IN_GAME", "FINISHED"],
+          "description": "Current room match lifecycle status"
+        },
+        "stage": {
+          "type": "number",
+          "description": "Selected gameplay stage index"
+        },
+        "maxPlayers": {
+          "type": "number",
+          "description": "Maximum concurrent squad members allowed"
+        },
+        "playerCount": {
+          "type": "number",
+          "description": "Current active player count in this room"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds when the room was initialized"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of the latest room heartbeat"
+        }
+      },
+      "required": ["id", "hostId", "hostName", "status", "stage", "maxPlayers", "createdAt", "updatedAt"]
+    },
+    "RoomPlayer": {
+      "title": "RoomPlayer",
+      "description": "Real-time synced position, combat actions, and health telemetry of a player in a room",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Player UID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Player display nickname"
+        },
+        "characterHue": {
+          "type": "number",
+          "description": "Customizable cyber neon armor hue in degrees"
+        },
+        "x": {
+          "type": "number",
+          "description": "World space X coordinate"
+        },
+        "y": {
+          "type": "number",
+          "description": "World space Y coordinate (Z axis in 3D)"
+        },
+        "vx": {
+          "type": "number",
+          "description": "Instantaneous X velocity vector"
+        },
+        "vy": {
+          "type": "number",
+          "description": "Instantaneous Y velocity vector"
+        },
+        "angle": {
+          "type": "number",
+          "description": "Facing rotation angle in radians"
+        },
+        "integrity": {
+          "type": "number",
+          "description": "Player integrity health percentage 0-100"
+        },
+        "activeWeapon": {
+          "type": "string",
+          "description": "Currently equipped cyber weapon archetype"
+        },
+        "score": {
+          "type": "number",
+          "description": "Real-time combat score"
+        },
+        "isSlashing": {
+          "type": "boolean",
+          "description": "True when performing active plasma katana strike"
+        },
+        "isBlasting": {
+          "type": "boolean",
+          "description": "True when firing primary or special blaster"
+        },
+        "isDashing": {
+          "type": "boolean",
+          "description": "True when executing high-velocity dash evasion"
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds for presence heartbeat"
+        }
+      },
+      "required": ["id", "name", "x", "y", "angle", "integrity", "lastSeen"]
+    },
+    "TacticalPing": {
+      "title": "TacticalPing",
+      "description": "Tactical squad ping beacon broadcast on the 3D battlefield and minimap",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique ping beacon identifier"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the player broadcasting the ping"
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Name of the broadcasting operative"
+        },
+        "pingType": {
+          "type": "string",
+          "enum": ["DANGER", "OBJECTIVE", "REGROUP", "AMMO", "ASSIST"],
+          "description": "Tactical beacon category"
+        },
+        "x": {
+          "type": "number",
+          "description": "World X position coordinate"
+        },
+        "y": {
+          "type": "number",
+          "description": "World Y position coordinate"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of transmission"
+        }
+      },
+      "required": ["id", "senderId", "senderName", "pingType", "x", "y", "timestamp"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Persistent arcade high score record submitted by players",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique score submission ID"
+        },
+        "playerName": {
+          "type": "string",
+          "description": "Player display nickname"
+        },
+        "score": {
+          "type": "number",
+          "description": "Total combat score accumulated"
+        },
+        "distance": {
+          "type": "number",
+          "description": "Distance traveled in meters"
+        },
+        "stage": {
+          "type": "number",
+          "description": "Stage number reached"
+        },
+        "maxCombo": {
+          "type": "number",
+          "description": "Maximum hit combo streak in the run"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds when score was achieved"
+        }
+      },
+      "required": ["id", "playerName", "score", "distance", "stage", "maxCombo", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/multiplayer_rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/MultiplayerRoom"
+      },
+      "description": "Stores multiplayer match room sessions and lobby states"
+    },
+    "/multiplayer_rooms/{roomId}/players/{playerId}": {
+      "schema": {
+        "$ref": "#/entities/RoomPlayer"
+      },
+      "description": "Stores real-time synchronized telemetry of squad operatives inside a room"
+    },
+    "/multiplayer_rooms/{roomId}/pings/{pingId}": {
+      "schema": {
+        "$ref": "#/entities/TacticalPing"
+      },
+      "description": "Stores transient tactical squad ping beacons inside a room"
+    },
+    "/leaderboard_scores/{scoreId}": {
+      "schema": {
+        "$ref": "#/entities/LeaderboardEntry"
+      },
+      "description": "Stores global arcade high score records across all players"
+    }
+  }
+}

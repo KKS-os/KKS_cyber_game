@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL SAFETY NET (DEFAULT-DENY) ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- ZERO-TRUST SECURITY PRIMITIVES ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    function isValidMultiplayerRoom(data) {
+      return data.keys().hasAll(['id', 'hostId', 'hostName', 'status', 'stage', 'maxPlayers', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'hostId', 'hostName', 'status', 'stage', 'maxPlayers', 'playerCount', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.hostId is string && data.hostId.size() >= 1 && data.hostId.size() <= 128
+        && data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 64
+        && data.status in ['WAITING', 'IN_GAME', 'FINISHED']
+        && data.stage is number && data.stage >= 1 && data.stage <= 100
+        && data.maxPlayers is number && data.maxPlayers >= 2 && data.maxPlayers <= 8
+        && (!('playerCount' in data) || (data.playerCount is number && data.playerCount >= 0 && data.playerCount <= 16))
+        && (!('name' in data) || (data.name is string && data.name.size() <= 64))
+        && data.createdAt is number
+        && data.updatedAt is number;
+    }
+
+    function isValidRoomPlayer(data) {
+      return data.keys().hasAll(['id', 'name', 'x', 'y', 'angle', 'integrity', 'lastSeen'])
+        && data.keys().hasOnly(['id', 'name', 'characterHue', 'x', 'y', 'vx', 'vy', 'angle', 'integrity', 'activeWeapon', 'score', 'isSlashing', 'isBlasting', 'isDashing', 'lastSeen'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 64
+        && (!('characterHue' in data) || data.characterHue is number)
+        && data.x is number
+        && data.y is number
+        && (!('vx' in data) || data.vx is number)
+        && (!('vy' in data) || data.vy is number)
+        && data.angle is number
+        && data.integrity is number && data.integrity >= 0 && data.integrity <= 200
+        && (!('activeWeapon' in data) || (data.activeWeapon is string && data.activeWeapon.size() <= 32))
+        && (!('score' in data) || data.score is number)
+        && (!('isSlashing' in data) || data.isSlashing is bool)
+        && (!('isBlasting' in data) || data.isBlasting is bool)
+        && (!('isDashing' in data) || data.isDashing is bool)
+        && data.lastSeen is number;
+    }
+
+    function isValidTacticalPing(data) {
+      return data.keys().hasAll(['id', 'senderId', 'senderName', 'pingType', 'x', 'y', 'timestamp'])
+        && data.keys().hasOnly(['id', 'senderId', 'senderName', 'pingType', 'x', 'y', 'timestamp'])
+        && isValidId(data.id)
+        && data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 64
+        && data.pingType in ['DANGER', 'OBJECTIVE', 'REGROUP', 'AMMO', 'ASSIST']
+        && data.x is number
+        && data.y is number
+        && data.timestamp is number;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll(['id', 'playerName', 'score', 'distance', 'stage', 'maxCombo', 'timestamp'])
+        && data.keys().hasOnly(['id', 'playerName', 'score', 'distance', 'stage', 'maxCombo', 'timestamp'])
+        && isValidId(data.id)
+        && data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 64
+        && data.score is number && data.score >= 0 && data.score <= 999999999
+        && data.distance is number && data.distance >= 0
+        && data.stage is number && data.stage >= 1
+        && data.maxCombo is number && data.maxCombo >= 0
+        && data.timestamp is number;
+    }
+
+    // --- 1. MULTIPLAYER ROOMS & LOBBIES ---
+    match /multiplayer_rooms/{roomId} {
+      allow get: if isValidId(roomId);
+      allow list: if true;
+
+      allow create: if isSignedIn()
+        && isValidId(roomId)
+        && isValidMultiplayerRoom(incoming())
+        && incoming().hostId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && isValidId(roomId)
+        && isValidMultiplayerRoom(incoming())
+        && (
+          // Host full control over match state
+          existing().hostId == request.auth.uid
+          // Or joining/leaving members updating player count and heartbeat
+          || incoming().diff(existing()).affectedKeys().hasOnly(['playerCount', 'updatedAt'])
+        );
+
+      allow delete: if isSignedIn()
+        && isValidId(roomId)
+        && existing().hostId == request.auth.uid;
+
+      // 1.1 Squad Players Inside Room
+      match /players/{playerId} {
+        allow get: if isValidId(roomId) && isValidId(playerId);
+        allow list: if isValidId(roomId);
+
+        allow create, update: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(playerId)
+          && playerId == request.auth.uid
+          && isValidRoomPlayer(incoming());
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(playerId)
+          && (
+            playerId == request.auth.uid
+            || get(/databases/$(database)/documents/multiplayer_rooms/$(roomId)).data.hostId == request.auth.uid
+          );
+      }
+
+      // 1.2 Tactical Pings Inside Room
+      match /pings/{pingId} {
+        allow get: if isValidId(roomId) && isValidId(pingId);
+        allow list: if isValidId(roomId);
+
+        allow create: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(pingId)
+          && isValidTacticalPing(incoming())
+          && incoming().senderId == request.auth.uid;
+
+        allow delete: if isSignedIn()
+          && isValidId(roomId)
+          && isValidId(pingId)
+          && (
+            existing().senderId == request.auth.uid
+            || get(/databases/$(database)/documents/multiplayer_rooms/$(roomId)).data.hostId == request.auth.uid
+          );
+      }
+    }
+
+    // --- 2. GLOBAL ARCADE LEADERBOARD ---
+    match /leaderboard_scores/{scoreId} {
+      allow get: if isValidId(scoreId);
+      allow list: if true;
+
+      allow create: if isSignedIn()
+        && isValidId(scoreId)
+        && isValidLeaderboardEntry(incoming());
+
+      // Scores are immutable once submitted
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import {
-  X,
   Shield,
   Zap,
   Swords,
   AlertTriangle,
   Cpu,
   Crosshair,
-  Activity,
   Flame,
   CheckCircle2,
   BookOpen,
   Eye,
   Radio,
   Globe,
+  Sparkles,
+  Users,
+  Target,
 } from 'lucide-react';
 import { Language, getTranslation } from '../localization';
 
@@ -30,12 +31,14 @@ export const CombatGuideMenu: React.FC<CombatGuideMenuProps> = ({
   currentLanguage = 'MY',
   onLanguageChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'CONTROLS' | 'AI_RULES' | 'PRO_TIPS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<
+    'OVERVIEW' | 'CONTROLS' | 'COMBAT_LOGIC' | 'WEAPONS_EVASION' | 'BOSS_MULTIPLAYER'
+  >('OVERVIEW');
   const [localLang, setLocalLang] = useState<Language>(currentLanguage);
 
-  // Sync if prop updates
   const activeLang = onLanguageChange ? currentLanguage : localLang;
   const t = getTranslation(activeLang);
+  const isMy = activeLang === 'MY';
 
   const toggleLanguage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -55,7 +58,7 @@ export const CombatGuideMenu: React.FC<CombatGuideMenuProps> = ({
       {/* Modal Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl max-h-[92vh] sm:max-h-[88vh] bg-[#070412]/95 border border-cyan-500/50 shadow-[0_0_50px_rgba(0,255,209,0.25)] rounded-lg flex flex-col relative overflow-hidden text-left"
+        className="w-full max-w-3xl max-h-[92vh] sm:max-h-[88vh] bg-[#070412]/95 border-2 border-[#00FFD1] shadow-[0_0_50px_rgba(0,255,209,0.35)] rounded-lg flex flex-col relative overflow-hidden text-left"
       >
         {/* Tactical Corner Brackets */}
         <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-[#00FFD1] pointer-events-none" />
@@ -64,22 +67,22 @@ export const CombatGuideMenu: React.FC<CombatGuideMenuProps> = ({
         <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-[#00FFD1] pointer-events-none" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-3.5 py-3 sm:px-6 sm:py-4 border-b border-cyan-500/30 bg-black/60 shrink-0">
+        <div className="flex items-center justify-between px-3.5 py-3 sm:px-6 sm:py-3.5 border-b border-cyan-500/30 bg-black/60 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-cyan-950/70 border border-[#00FFD1] flex items-center justify-center text-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.4)]">
+            <div className="w-8 h-8 rounded bg-cyan-950/70 border border-[#00FFD1] flex items-center justify-center text-[#00FFD1] shadow-[0_0_12px_rgba(0,255,209,0.4)] shrink-0">
               <BookOpen size={16} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-cyan-400/80 tracking-[0.25em] uppercase font-bold">
-                  {t.guideProtocol}
+                <span className="text-[9.5px] text-cyan-400 tracking-[0.2em] uppercase font-bold">
+                  {isMy ? 'စစ်ဆင်ရေး လမ်းညွှန်နှင့် LOGIC လက်စွဲ' : 'TACTICAL OPERATION & LOGIC MANUAL'}
                 </span>
-                <span className="px-1.5 py-0.2 bg-[#FF00E5]/20 border border-[#FF00E5]/60 text-[#FF00E5] text-[8px] font-black rounded uppercase">
-                  PRO MANUAL
+                <span className="px-1.5 py-0.2 bg-[#FF00E5]/20 border border-[#FF00E5]/60 text-[#FF00E5] text-[7.5px] font-black rounded uppercase">
+                  v2.5 PRO
                 </span>
               </div>
               <h2 className="text-sm sm:text-lg font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-[#00FFD1] via-white to-[#FF00E5] uppercase">
-                {t.guideTitle}
+                {isMy ? 'KKS Cyberpunk: Neon Anti-Virus ကစားနည်းစည်းမျဉ်းများ' : 'KKS Cyberpunk: Neon Anti-Virus Game Logic Guide'}
               </h2>
             </div>
           </div>
@@ -99,323 +102,292 @@ export const CombatGuideMenu: React.FC<CombatGuideMenuProps> = ({
 
             {/* Close Button */}
             <button
-              id="close-guide-btn"
+              id="guide-close-btn"
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded border border-rose-500/40 bg-rose-950/40 text-rose-300 hover:text-white hover:bg-rose-900/60 hover:border-rose-400 transition-colors flex items-center justify-center cursor-pointer touch-manipulation"
+              className="w-7 h-7 flex items-center justify-center border border-white/20 bg-black/40 hover:bg-white/20 text-gray-300 hover:text-white transition-colors cursor-pointer touch-manipulation rounded"
+              title="Close Guide"
             >
-              <X size={18} />
+              ✕
             </button>
           </div>
         </div>
 
         {/* Tactical Navigation Tabs */}
-        <div className="flex items-center border-b border-cyan-500/20 bg-black/40 px-3 py-1.5 gap-1.5 overflow-x-auto shrink-0 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveTab('OVERVIEW')}
-            className={`px-3 py-1 text-xs font-bold uppercase rounded tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer touch-manipulation ${
-              activeTab === 'OVERVIEW'
-                ? 'bg-cyan-500/20 text-[#00FFD1] border border-cyan-400 shadow-[0_0_12px_rgba(0,255,209,0.3)]'
-                : 'text-cyan-400/60 hover:text-cyan-300 border border-transparent'
-            }`}
-          >
-            <Activity size={13} />
-            <span>{t.tabOverview}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('CONTROLS')}
-            className={`px-3 py-1 text-xs font-bold uppercase rounded tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer touch-manipulation ${
-              activeTab === 'CONTROLS'
-                ? 'bg-cyan-500/20 text-[#00FFD1] border border-cyan-400 shadow-[0_0_12px_rgba(0,255,209,0.3)]'
-                : 'text-cyan-400/60 hover:text-cyan-300 border border-transparent'
-            }`}
-          >
-            <Crosshair size={13} />
-            <span>{t.tabControls}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('AI_RULES')}
-            className={`px-3 py-1 text-xs font-bold uppercase rounded tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer touch-manipulation ${
-              activeTab === 'AI_RULES'
-                ? 'bg-rose-500/20 text-[#FF0055] border border-rose-500 shadow-[0_0_12px_rgba(255,0,85,0.3)]'
-                : 'text-rose-400/60 hover:text-rose-300 border border-transparent'
-            }`}
-          >
-            <AlertTriangle size={13} />
-            <span>{t.tabAIRules}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('PRO_TIPS')}
-            className={`px-3 py-1 text-xs font-bold uppercase rounded tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer touch-manipulation ${
-              activeTab === 'PRO_TIPS'
-                ? 'bg-purple-500/20 text-[#FF00E5] border border-[#FF00E5] shadow-[0_0_12px_rgba(255,0,229,0.3)]'
-                : 'text-purple-400/60 hover:text-purple-300 border border-transparent'
-            }`}
-          >
-            <Zap size={13} />
-            <span>{t.tabProTips}</span>
-          </button>
+        <div className="flex items-center px-3 sm:px-6 bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto scrollbar-none gap-1 sm:gap-2 py-1.5">
+          {[
+            { id: 'OVERVIEW', label: isMy ? 'အနှစ်ချုပ်' : 'OVERVIEW', icon: Cpu },
+            { id: 'CONTROLS', label: isMy ? 'ထိန်းချုပ်မှု' : 'CONTROLS', icon: Crosshair },
+            { id: 'COMBAT_LOGIC', label: isMy ? 'တိုက်ခိုက်မှု Logic' : 'COMBAT LOGIC', icon: Swords },
+            { id: 'WEAPONS_EVASION', label: isMy ? 'လက်နက်/လျှောင်တိမ်း' : 'WEAPONS & EVASION', icon: Zap },
+            { id: 'BOSS_MULTIPLAYER', label: isMy ? 'BOSS & MULTI' : 'BOSS & MULTIPLAYER', icon: Users },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-2.5 sm:px-3 py-1.5 rounded text-[10.5px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                  isActive
+                    ? 'bg-[#00FFD1] text-black shadow-[0_0_12px_rgba(0,255,209,0.5)] font-black'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <Icon size={13} className={isActive ? 'text-black' : 'text-[#00FFD1]'} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm text-cyan-100/90 leading-relaxed max-h-[60vh] sm:max-h-[64vh]">
+        {/* Tab Body Content */}
+        <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-gray-300">
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'OVERVIEW' && (
             <div className="space-y-4">
-              <div className="bg-cyan-950/30 border border-cyan-500/30 p-3.5 rounded">
-                <div className="flex items-center gap-2 text-[#00FFD1] font-bold text-sm mb-1.5">
-                  <Radio size={16} className="text-[#00FFD1] animate-pulse" />
-                  <span>{t.guideOverviewTitle}</span>
-                </div>
-                <p className="text-cyan-200/90 leading-normal">
-                  {t.guideOverviewText}
+              <div className="p-3.5 bg-cyan-950/20 border border-cyan-500/40 rounded">
+                <h3 className="text-white font-black text-sm uppercase flex items-center gap-2 mb-1.5 text-[#00FFD1]">
+                  <Sparkles size={16} />
+                  {isMy ? 'ဗိုင်းရပ်စ်နှိမ်နင်းရေး မစ်ရှင် ရည်မှန်းချက်' : 'ANTI-VIRUS MISSION OBJECTIVE'}
+                </h3>
+                <p>
+                  {isMy
+                    ? 'သင်သည် ဒစ်ဂျစ်တယ်ကွန်ရက်ထဲသို့ ကျူးကျော်ဝင်ရောက်လာသော Mutant Bio-Hazard ဗိုင်းရပ်စ်များကို ချေမှုန်းရမည့် Cyborg Ninja Operative ဖြစ်ပါသည်။ ကွန်ရက်အတွင်း ဝှက်ထားသော Quantum Bio-Cores ၃ ခုကို စုဆောင်းကာ Extraction Portal သို့ အသက်ရှင်လျက် လွတ်မြောက်ရမည် ဖြစ်ပါသည်။'
+                    : 'You are an advanced Cyborg Ninja Anti-Virus Operative deployed into a corrupted cybergrid. Your objective is to cleanse mutant swarms, extract 3 Quantum Bio-Cores, and escape through the dimensional Extraction Portal before systemic collapse.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-black/60 border border-purple-500/30 p-3 rounded">
-                  <div className="flex items-center gap-2 text-[#FF00E5] font-bold text-xs mb-1">
-                    <Cpu size={14} />
-                    <span>{t.guideAINeuralTitle}</span>
-                  </div>
-                  <p className="text-cyan-200/80 text-[11px] leading-relaxed">
-                    {t.guideAINeuralDesc}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="p-3 bg-black/60 border border-cyan-500/30 rounded">
+                  <div className="text-[10px] text-cyan-400 font-bold uppercase mb-1">STEP 1: BIO-CORES</div>
+                  <div className="text-white font-black text-xs mb-1">{isMy ? 'Core ၃ ခု စုဆောင်းပါ' : 'Collect 3 Bio-Cores'}</div>
+                  <p className="text-[11px] text-gray-400">
+                    {isMy ? 'Radar Pointer (Target Arrow) ညွှန်ပြရာသို့ သွား၍ မီးစိမ်းလင်းနေသော Core များကို ကောက်ယူပါ။' : 'Follow the Radar Target Arrow to locate glowing green Bio-Cores in the sector.'}
                   </p>
                 </div>
 
-                <div className="bg-black/60 border border-emerald-500/30 p-3 rounded">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs mb-1">
-                    <Activity size={14} />
-                    <span>{t.guideRhythmTitle}</span>
-                  </div>
-                  <p className="text-cyan-200/80 text-[11px] leading-relaxed">
-                    {t.guideRhythmDesc}
+                <div className="p-3 bg-black/60 border border-[#00FF66]/30 rounded">
+                  <div className="text-[10px] text-[#00FF66] font-bold uppercase mb-1">STEP 2: PORTAL UNLOCK</div>
+                  <div className="text-white font-black text-xs mb-1">{isMy ? 'Portal ပွင့်လာမည်' : 'Portal Ready'}</div>
+                  <p className="text-[11px] text-gray-400">
+                    {isMy ? 'Core ၃ ခုပြည့်ပါက Extraction Portal အလိုအလျောက် ပွင့်သွားမည်ဖြစ်ပြီး အလင်းတန်းပေါ်လာပါမည်။' : 'Collecting all 3 Cores unlocks the Dimensional Escape Portal.'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-black/60 border border-[#FF00E5]/30 rounded">
+                  <div className="text-[10px] text-[#FF00E5] font-bold uppercase mb-1">STEP 3: APEX TITAN</div>
+                  <div className="text-white font-black text-xs mb-1">{isMy ? 'Apex Boss ရင်ဆိုင်ပါ' : 'Apex Titan Breach'}</div>
+                  <p className="text-[11px] text-gray-400">
+                    {isMy ? 'အဆင့် ၅ တွင် ဧရာမ Apex Boss Lord ထွက်ပေါ်လာမည်ဖြစ်ပြီး ဒိုင်းကာချိုးကာ ချေမှုန်းရမည်။' : 'On Stage 5, the colossal Apex Cyber-Lord Titan materializes for the ultimate victory.'}
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: CONTROLS & ARSENAL */}
+          {/* TAB 2: CONTROLS */}
           {activeTab === 'CONTROLS' && (
-            <div className="space-y-3">
-              <div className="bg-black/70 border border-cyan-500/30 p-3 rounded">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-[#00FFD1] font-bold">
-                    <Swords size={15} />
-                    <span>{t.guideKatanaTitle}</span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* PC Controls */}
+                <div className="p-3.5 bg-black/60 border border-cyan-500/40 rounded space-y-2">
+                  <h4 className="text-white font-black text-xs uppercase text-[#00FFD1] border-b border-cyan-500/30 pb-1">
+                    💻 {isMy ? 'PC / KEYBOARD ထိန်းချုပ်မှု' : 'PC KEYBOARD & MOUSE'}
+                  </h4>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex justify-between"><span className="text-gray-400">W / A / S / D:</span><span className="text-white font-bold">၃၆၀° လမ်းလျှောက်/ပြေး</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Left Click / J:</span><span className="text-[#00FFD1] font-bold">Plasma Katana ဓားခုတ် (Slash)</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Right Click / K:</span><span className="text-[#FFE600] font-bold">Plasma Blaster သေနတ်ပစ် (Shoot)</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">SPACE / Shift:</span><span className="text-[#FF00E5] font-bold">Phase Dash အမြန်ရှောင်တိမ်း</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">C Key:</span><span className="text-[#00FF66] font-bold">Crouch / Combat Slide လျှောတိုက်</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">F Key:</span><span className="text-[#FF0055] font-bold">Stealth Takedown ချောင်းမြောင်းသတ်</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">1 / 2 / 3 Keys:</span><span className="text-white font-bold">လက်နက် အလှည့်အပြောင်း</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">T Key:</span><span className="text-amber-400 font-bold">Tactical Squad Ping ပို့ရန်</span></div>
                   </div>
-                  <span className="text-[10px] text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/40">
-                    {t.guideKatanaKeys}
-                  </span>
                 </div>
-                <p className="text-cyan-200/85 text-xs">
-                  {t.guideKatanaDesc}
+
+                {/* Mobile Touch Controls */}
+                <div className="p-3.5 bg-black/60 border border-[#FF00E5]/40 rounded space-y-2">
+                  <h4 className="text-white font-black text-xs uppercase text-[#FF00E5] border-b border-[#FF00E5]/30 pb-1">
+                    📱 {isMy ? 'မိုဘိုင်းလ် TOUCH ထိန်းချုပ်မှု' : 'MOBILE TOUCH ERGONOMICS'}
+                  </h4>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex justify-between"><span className="text-gray-400">ဘယ်ဘက် Joystick:</span><span className="text-white font-bold">ဘယ်လက်မဖြင့် ၃၆၀° ရွှေ့လျား</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">ATTACK ခလုတ် (အကြီး):</span><span className="text-[#00FFD1] font-bold">ဓားခုတ်တိုက်ခိုက်မှု (Katana)</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">BLAST ခလုတ် (အပေါ်):</span><span className="text-[#FFE600] font-bold">စွမ်းအင်သေနတ်ပစ်ခတ်မှု</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">TAKEDOWN (ဘယ်ဘက်):</span><span className="text-[#FF0055] font-bold">ချောင်းမြောင်း အသံတိတ်သတ်</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">DASH ခလုတ် (အောက်):</span><span className="text-[#FF00E5] font-bold">အဝေးသို့ အမြန်ဒက်ရှ်ရှောင်</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">CROUCH / COVER:</span><span className="text-[#00FF66] font-bold">ဝပ်ခြင်းနှင့် အကာအကွယ်ယူခြင်း</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: COMBAT LOGIC */}
+          {activeTab === 'COMBAT_LOGIC' && (
+            <div className="space-y-3.5">
+              <div className="p-3 bg-black/70 border border-[#00FFD1]/30 rounded">
+                <h4 className="text-[#00FFD1] font-black text-xs uppercase mb-1">
+                  ⚔️ DAMAGE & HIT-STAGGER LOGIC (ထိခိုက်ဒဏ်ရာ တွက်ချက်ပုံ)
+                </h4>
+                <p className="text-[11px] mb-2 text-gray-300">
+                  {isMy
+                    ? 'Plasma Katana သည် ၃ ဆင့် အစီအစဉ်အတိုင်း တိုက်ခိုက်ပါသည် (Slash 1: 35 DMG, Slash 2: 45 DMG, Slash 3 Finisher: 75 DMG)။ ရန်သူကို ထိမှန်တိုင်း ရန်သူ၏ တိုက်ခိုက်မှုကို ၁၆ frames ကြာ ရပ်တန့်စေသည့် Stagger State ဖြစ်သွားစေပါသည်။'
+                    : 'Plasma Katana executes a 3-stage combo progression (Slash 1: 35 DMG, Slash 2: 45 DMG, Slash 3 Finisher: 75 DMG with 180° sweep). Landing a hit inflicts a 16-frame Stagger interruption.'}
+                </p>
+                <div className="bg-black/50 p-2 border border-white/10 text-[10px] font-mono text-[#00FF66]">
+                  Damage Formula = BaseDamage × ComboMultiplier × (RhythmBonus ? 1.5 : 1.0)
+                </div>
+              </div>
+
+              <div className="p-3 bg-black/70 border border-[#FF00E5]/30 rounded">
+                <h4 className="text-[#FF00E5] font-black text-xs uppercase mb-1">
+                  🔥 5-TIER COMBO STREAK & DECAY TIMER (ကွန်ဘိုအဆင့် ၅ ဆင့်)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 text-[10px] text-center my-2">
+                  <div className="p-1.5 bg-cyan-950/60 border border-cyan-400 rounded">
+                    <div className="font-bold text-cyan-400">TIER 1 (1-4x)</div>
+                    <div className="text-white text-[9px]">Cyan • 4.0s</div>
+                  </div>
+                  <div className="p-1.5 bg-yellow-950/60 border border-yellow-400 rounded">
+                    <div className="font-bold text-yellow-400">TIER 2 (5-9x)</div>
+                    <div className="text-white text-[9px]">Gold • 3.5s</div>
+                  </div>
+                  <div className="p-1.5 bg-pink-950/60 border border-pink-400 rounded">
+                    <div className="font-bold text-pink-400">TIER 3 (10-19x)</div>
+                    <div className="text-white text-[9px]">Hyper • 3.0s</div>
+                  </div>
+                  <div className="p-1.5 bg-purple-950/60 border border-purple-400 rounded">
+                    <div className="font-bold text-purple-400">TIER 4 (20-34x)</div>
+                    <div className="text-white text-[9px]">Ultra • 2.5s</div>
+                  </div>
+                  <div className="p-1.5 bg-red-950/60 border border-red-500 rounded">
+                    <div className="font-bold text-red-400">TIER 5 (35x+)</div>
+                    <div className="text-white text-[9px]">GODLIKE • 2.0s</div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  {isMy
+                    ? 'ဆက်တိုက်တိုက်ခိုက်မှု မြင့်တက်လာသည်နှင့်အမျှ ရမှတ်ဆတိုး (Multiplier) မြင့်တက်လာပြီး အသံစကေး မြင့်တက်လာပါမည်။ သတ်မှတ်ချိန်အတွင်း မတိုက်ခိုက်နိုင်ပါက Combo Timer ကုန်ဆုံးသွားပါမည်။'
+                    : 'Higher combo tiers scale your score multiplier up to x12 with escalating synth pitch. Maintain offensive momentum before the decay timer expires.'}
                 </p>
               </div>
 
-              <div className="bg-black/70 border border-rose-500/30 p-3 rounded">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-[#FF0055] font-bold">
-                    <Crosshair size={15} />
-                    <span>{t.guideBlasterTitle}</span>
-                  </div>
-                  <span className="text-[10px] text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/40">
-                    {t.guideBlasterKeys}
-                  </span>
-                </div>
-                <p className="text-cyan-200/85 text-xs">
-                  {t.guideBlasterDesc}
-                </p>
-              </div>
-
-              <div className="bg-black/70 border border-purple-500/30 p-3 rounded">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-[#FF00E5] font-bold">
-                    <Zap size={15} />
-                    <span>{t.guideDashTitle}</span>
-                  </div>
-                  <span className="text-[10px] text-purple-400 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-500/40">
-                    {t.guideDashKeys}
-                  </span>
-                </div>
-                <p className="text-cyan-200/85 text-xs">
-                  {t.guideDashDesc}
-                </p>
-              </div>
-
-              <div className="bg-black/70 border border-amber-500/30 p-3 rounded">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-amber-400 font-bold">
-                    <Eye size={15} />
-                    <span>{t.guideStealthTitle}</span>
-                  </div>
-                  <span className="text-[10px] text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40">
-                    {t.guideStealthKeys}
-                  </span>
-                </div>
-                <p className="text-cyan-200/85 text-xs">
-                  {t.guideStealthDesc}
+              <div className="p-3 bg-black/70 border border-yellow-500/30 rounded">
+                <h4 className="text-yellow-400 font-black text-xs uppercase mb-1">
+                  🛡️ CRITICAL COUNTER PARRY (ပြန်လှန်ခုခံတိုက်ခိုက်မှု)
+                </h4>
+                <p className="text-[11px] text-gray-300">
+                  {isMy
+                    ? 'ရန်သူ တိုက်ခိုက်လာသော အခိုက်အတန့် ၆ frames အတွင်း အချိန်ကိုက် ဓားခုတ်လိုက်ပါက ရွှေရောင် Critical Parry ပေါ်လာပြီး ရန်သူ ဒူးထောက်သွားကာ မိမိမှာ ထိခိုက်မှု လုံးဝမရှိဘဲ ၂ ဆ Damage ပြန်တုံ့ပြန်ပါမည်။'
+                    : 'Executing a blade strike within 6 frames of an incoming enemy attack triggers a Golden Counter Parry—granting full damage immunity, staggering the attacker, and dealing 200% counter damage.'}
                 </p>
               </div>
             </div>
           )}
 
-          {/* TAB 3: HARDCORE AI RULES & PIT HAZARDS */}
-          {activeTab === 'AI_RULES' && (
-            <div className="space-y-3">
-              {/* Rule 1: Dynamic Combo Input System & Anti-Mash Penalty */}
-              <div className="bg-rose-950/30 border border-rose-500/40 p-3.5 rounded">
-                <div className="flex items-center gap-2 text-[#FF0055] font-bold text-sm mb-1">
-                  <AlertTriangle size={16} />
-                  <span>{t.guideRule1Title}</span>
-                </div>
-                <p className="text-rose-200/90 text-xs">
-                  {t.guideRule1Desc}
-                </p>
-                <div className="mt-2 text-[11px] text-[#00FFD1] font-semibold bg-black/60 p-2.5 rounded border border-[#00FFD1]/40">
-                  ⚡ {t.guideRule1Tip}
-                </div>
-              </div>
-
-              {/* Rule 2: 75% Tactical AI Combo Prediction */}
-              <div className="bg-amber-950/30 border border-amber-500/40 p-3.5 rounded">
-                <div className="flex items-center gap-2 text-[#FFE600] font-bold text-sm mb-1">
-                  <Cpu size={16} className="text-[#FFE600]" />
-                  <span>{t.guideRule2Title}</span>
-                </div>
-                <p className="text-amber-200/90 text-xs">
-                  {t.guideRule2Desc}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-[11px]">
-                  <div className="border border-cyan-500/30 p-2 rounded bg-cyan-950/30">
-                    <span className="text-[#00FFD1] font-bold block mb-0.5">{t.guideRule2Evade}</span>
-                    <p className="text-cyan-200/80">
-                      {t.guideRule2EvadeDesc}
+          {/* TAB 4: WEAPONS & EVASION */}
+          {activeTab === 'WEAPONS_EVASION' && (
+            <div className="space-y-3.5">
+              <div className="p-3 bg-black/70 border border-cyan-500/30 rounded">
+                <h4 className="text-cyan-400 font-black text-xs uppercase mb-1.5">
+                  🏃 4 ADAPTIVE EVASION MANEUVERS (လျှောင်တိမ်းနည်း ၄ မျိုး)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 bg-white/5 border border-white/10 rounded">
+                    <span className="font-bold text-[#FF00E5]">၁။ PHASE DASH:</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      ၁၂ frames ကြာ မည်သည့်တိုက်ခိုက်မှုမှ မထိသော Invulnerability I-Frames ရရှိပြီး ရန်သူများကြား အဝေးသို့ ထိုးဖောက်ရှောင်တိမ်းနိုင်သည်။
                     </p>
                   </div>
-                  <div className="border border-amber-500/30 p-2 rounded bg-amber-950/30">
-                    <span className="text-[#FFE600] font-bold block mb-0.5">{t.guideRule2Block}</span>
-                    <p className="text-amber-200/80">
-                      {t.guideRule2BlockDesc}
+                  <div className="p-2 bg-white/5 border border-white/10 rounded">
+                    <span className="font-bold text-[#00FF66]">၂။ COMBAT SLIDE (CROUCH):</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      အောက်သို့ လျှောတိုက်ဝင်ရောက်ကာ အပေါ်ယံ လေဆာတန်းများနှင့် အဆိပ်ရည်များကို ငုံ့လျှောင်နိုင်သည်။
+                    </p>
+                  </div>
+                  <div className="p-2 bg-white/5 border border-white/10 rounded">
+                    <span className="font-bold text-[#0088FF]">၃။ TACTICAL COVER:</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      အတားအဆီး ဘယ်ရီဂိတ်များနောက်တွင် အကာအကွယ်ယူကာ ထိခိုက်မှုဒဏ်ကို ၈၀% အထိ လျှော့ချနိုင်သည်။
+                    </p>
+                  </div>
+                  <div className="p-2 bg-white/5 border border-white/10 rounded">
+                    <span className="font-bold text-[#FFE600]">၄။ DOUBLE-JUMP:</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      မြေပြင် အက်ကွဲကြောင်းများနှင့် Abyss တွင်းနက်များအပေါ်မှ ခုန်ကျော်လွှားနိုင်သည်။
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Rule 3: Pit Hazard & Crater Edge Navigation */}
-              <div className="bg-cyan-950/30 border border-cyan-500/40 p-3.5 rounded">
-                <div className="flex items-center gap-2 text-[#00FFD1] font-bold text-sm mb-1">
-                  <Shield size={16} />
-                  <span>{t.guideRule3Title}</span>
+              <div className="p-3 bg-black/70 border border-[#00FFD1]/30 rounded">
+                <h4 className="text-[#00FFD1] font-black text-xs uppercase mb-1.5">
+                  🔫 CYBER ARSENAL (လက်နက်စနစ်များ)
+                </h4>
+                <div className="space-y-1 text-[11px]">
+                  <div><span className="text-[#00FFD1] font-bold">Plasma Blaster (PLZ-1):</span> တိကျသော အပြာရောင် လေဆာတန်းများဖြင့် အမြန်ပစ်ခတ်ခြင်း (35 DMG)</div>
+                  <div><span className="text-[#FFE600] font-bold">Tri-Spread Scatter Cannon:</span> ပစ်ကွင်းကျယ်ပြန့်သော ကျည်ဆံခွဲ တိုက်ခိုက်မှု (65 DMG)</div>
+                  <div><span className="text-[#FF00E5] font-bold">Heavy Plasma Katana:</span> အနီးကပ် ဓားခုတ် အဆင့် ၃ ဆင့် ချေမှုန်းမှု (35 - 75 DMG)</div>
                 </div>
-                <p className="text-cyan-200/90 text-xs">
-                  {t.guideRule3Desc}
-                </p>
-                <ul className="list-disc list-inside mt-1.5 space-y-1 text-cyan-200/80 text-[11px]">
-                  <li>{t.guideRule3P1}</li>
-                  <li>{t.guideRule3P2}</li>
-                </ul>
-              </div>
-
-              {/* Rule 4: Executioner Protocol */}
-              <div className="bg-purple-950/30 border border-purple-500/40 p-3.5 rounded">
-                <div className="flex items-center gap-2 text-[#FF00E5] font-bold text-sm mb-1">
-                  <Flame size={16} />
-                  <span>{t.guideRule4Title}</span>
-                </div>
-                <p className="text-purple-200/90 text-xs">
-                  {t.guideRule4Desc}
-                </p>
-                <ul className="list-disc list-inside mt-1.5 space-y-1 text-purple-200/80 text-[11px]">
-                  <li>{t.guideRule4P1}</li>
-                  <li>{t.guideRule4P2}</li>
-                </ul>
               </div>
             </div>
           )}
 
-          {/* TAB 4: PRO TIPS */}
-          {activeTab === 'PRO_TIPS' && (
-            <div className="space-y-3">
-              <div className="bg-black/70 border border-emerald-500/40 p-3.5 rounded flex items-start gap-3">
-                <div className="w-8 h-8 rounded bg-emerald-950/60 border border-emerald-400 flex items-center justify-center text-emerald-300 shrink-0 font-black text-sm">
-                  01
-                </div>
-                <div>
-                  <h4 className="text-emerald-400 font-bold text-xs uppercase mb-1">
-                    {t.guideTip1Title}
-                  </h4>
-                  <p className="text-cyan-200/80 text-xs">
-                    {t.guideTip1Desc}
+          {/* TAB 5: BOSS & MULTIPLAYER */}
+          {activeTab === 'BOSS_MULTIPLAYER' && (
+            <div className="space-y-3.5">
+              <div className="p-3 bg-black/70 border border-red-500/40 rounded">
+                <h4 className="text-red-400 font-black text-xs uppercase mb-1 flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  {isMy ? 'APEX CYBER-LORD TITAN (BOSS တိုက်ခိုက်မှုစည်းမျဉ်း)' : 'APEX CYBER-LORD TITAN (BOSS PROTOCOL)'}
+                </h4>
+                <div className="space-y-1.5 text-[11px] text-gray-300">
+                  <p>
+                    <strong className="text-white">အဆင့် ၁ (Energy Shield):</strong> Boss တွင် ပြာလဲ့လဲ့ စွမ်းအင်ဒိုင်းကာ ပါရှိပြီး Plasma Blaster ဖြင့် အဆက်မပြတ် ပစ်ခတ်၍ ဒိုင်းကာကို အရင် ချိုးဖျက်ရမည်။
+                  </p>
+                  <p>
+                    <strong className="text-white">အဆင့် ၂ (Enrage & Swarm):</strong> ကျန်းမာရေး ၅၀% အောက်ရောက်ပါက Berserk ဖြစ်သွားကာ Mutant အကောင်ငယ်များကို ဆင့်ခေါ်ပြီး မျက်နှာပြင်တစ်ခုလုံး လေဆာတိုက်ခိုက်မှု ပြုလုပ်ပါမည်။
+                  </p>
+                  <p>
+                    <strong className="text-white">အဆင့် ၃ (Abyss Shockwaves):</strong> မြေပြင်ကို ရိုက်ခတ်သည့် Shockwave များကို Double Jump ဖြင့် ခုန်ကျော်ပြီး Finisher ခုတ်ချက်ဖြင့် အပြီးသတ်ရမည်။
                   </p>
                 </div>
               </div>
 
-              <div className="bg-black/70 border border-amber-500/40 p-3.5 rounded flex items-start gap-3">
-                <div className="w-8 h-8 rounded bg-amber-950/60 border border-amber-400 flex items-center justify-center text-amber-300 shrink-0 font-black text-sm">
-                  02
-                </div>
-                <div>
-                  <h4 className="text-amber-400 font-bold text-xs uppercase mb-1">
-                    {t.guideTip2Title}
-                  </h4>
-                  <p className="text-cyan-200/80 text-xs">
-                    {t.guideTip2Desc}
+              <div className="p-3 bg-black/70 border border-cyan-500/40 rounded">
+                <h4 className="text-cyan-400 font-black text-xs uppercase mb-1 flex items-center gap-1.5">
+                  <Users size={14} />
+                  {isMy ? 'FIREBASE MULTIPLAYER SQUAD CO-OP LOGIC' : 'FIREBASE MULTIPLAYER SQUAD CO-OP'}
+                </h4>
+                <div className="space-y-1.5 text-[11px] text-gray-300">
+                  <p>
+                    <strong className="text-[#00FFD1]">Cloud Synchronization:</strong> Firebase Firestore ပေါ်တွင် Room ဖွင့်ကာ မည်သည့်စက်မှမဆို ဝင်ရောက်ကစားနိုင်ပြီး အဖွဲ့သားများ၏ တည်နေရာ၊ လှုပ်ရှားမှု၊ ဓားခုတ်မှုများကို ချက်ချင်း မြင်တွေ့ရပါမည်။
                   </p>
-                </div>
-              </div>
-
-              <div className="bg-black/70 border border-cyan-500/40 p-3.5 rounded flex items-start gap-3">
-                <div className="w-8 h-8 rounded bg-cyan-950/60 border border-cyan-400 flex items-center justify-center text-cyan-300 shrink-0 font-black text-sm">
-                  03
-                </div>
-                <div>
-                  <h4 className="text-[#00FFD1] font-bold text-xs uppercase mb-1">
-                    {t.guideTip3Title}
-                  </h4>
-                  <p className="text-cyan-200/80 text-xs">
-                    {t.guideTip3Desc}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-black/70 border border-purple-500/40 p-3.5 rounded flex items-start gap-3">
-                <div className="w-8 h-8 rounded bg-purple-950/60 border border-purple-400 flex items-center justify-center text-purple-300 shrink-0 font-black text-sm">
-                  04
-                </div>
-                <div>
-                  <h4 className="text-[#FF00E5] font-bold text-xs uppercase mb-1">
-                    {t.guideTip4Title}
-                  </h4>
-                  <p className="text-cyan-200/80 text-xs">
-                    {t.guideTip4Desc}
+                  <p>
+                    <strong className="text-amber-400">Tactical Pings:</strong> [T] ကီး သို့မဟုတ် မိုဘိုင်းလ် Ping ခလုတ်ဖြင့် ရန်သူရှိရာ (Danger), လာရောက်စုစည်းရန် (Regroup) စသည့် Beacon များကို အဖွဲ့သားများ၏ မြေပုံပေါ်သို့ တိုက်ရိုက် ပို့လွှတ်နိုင်ပါသည်။
                   </p>
                 </div>
               </div>
             </div>
           )}
+
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-t border-cyan-500/30 bg-black/60 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 text-[10px] text-cyan-400/70">
-            <CheckCircle2 size={13} className="text-emerald-400" />
-            <span>NEURAL MANUAL // {activeLang === 'MY' ? 'မြန်မာဘာသာ အသင့်ရှိသည်' : 'READY'}</span>
-          </div>
-
+        <div className="px-4 py-2.5 sm:px-6 sm:py-3 bg-black/70 border-t border-cyan-500/30 flex items-center justify-between shrink-0 text-xs">
+          <span className="text-[10px] text-cyan-400/80">
+            {isMy ? '🎮 စစ်ဆင်ရေးအောင်မြင်ပါစေ!' : '⚡ Good luck Operative!'}
+          </span>
           <button
-            id="guide-ack-btn"
+            id="guide-btn-acknowledge"
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-gradient-to-r from-[#00FFD1] to-[#00d0a7] text-black font-black text-xs uppercase tracking-wider rounded transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_20px_rgba(0,255,209,0.4)] cursor-pointer touch-manipulation"
+            className="px-4 py-1.5 bg-[#00FFD1] hover:bg-[#00FFD1]/85 text-black font-black text-xs uppercase tracking-wider rounded transition-all shadow-[0_0_12px_rgba(0,255,209,0.4)] cursor-pointer touch-manipulation"
           >
             {t.acknowledge}
           </button>

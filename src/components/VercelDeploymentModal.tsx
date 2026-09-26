@@ -112,9 +112,9 @@ export const VercelDeploymentModal: React.FC<VercelDeploymentModalProps> = ({
                 : 'Use the AI Studio Settings menu to "Export to GitHub", or push your local workspace via standard git commands:'}
             </p>
             <div className="bg-[#020108] border border-white/10 p-2 text-[10px] text-cyan-200 flex items-center justify-between font-mono">
-              <code className="truncate mr-2">git init && git add . && git commit -m "Deploy Remix Neon Cyber Runner 2"</code>
+              <code className="truncate mr-2">git init && git add . && git commit -m "Deploy KKS Cyberpunk: Neon Anti-Virus"</code>
               <button
-                onClick={() => handleCopy('git init && git add . && git commit -m "Deploy Remix Neon Cyber Runner 2"', 1)}
+                onClick={() => handleCopy('git init && git add . && git commit -m "Deploy KKS Cyberpunk: Neon Anti-Virus"', 1)}
                 className="px-2 py-1 bg-[#00FFD1]/20 hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] font-bold transition-all flex items-center gap-1 shrink-0"
               >
                 {copiedIndex === 1 ? <CheckCircle size={12} /> : <Copy size={12} />}

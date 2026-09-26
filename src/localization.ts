@@ -220,8 +220,8 @@ export interface TranslationDictionary {
 
 export const translations: Record<Language, TranslationDictionary> = {
   EN: {
-    appName: 'REMIX NEON CYBER RUNNER 2',
-    appSubtitle: 'HIGH-FIDELITY CYBERNETIC COMBAT ENGINE',
+    appName: 'KKS CYBERPUNK: NEON ANTI-VIRUS',
+    appSubtitle: 'TACTICAL 3D CYBERNETIC ANTI-VIRUS ACTION',
     language: 'LANGUAGE',
     languageName: 'ENGLISH',
     languageSwitch: '🌐 EN / MY',
@@ -428,8 +428,8 @@ export const translations: Record<Language, TranslationDictionary> = {
   },
 
   MY: {
-    appName: 'ရီးမစ်စ် နီယွန် ဆိုက်ဘာ ရန်းနား ၂',
-    appSubtitle: 'အဆင့်မြင့် 3D ဆိုက်ဘာပန့်ခ် တိုက်ခိုက်ရေးဂိမ်း',
+    appName: 'KKS CYBERPUNK: NEON ANTI-VIRUS (ဆိုက်ဘာ နီယွန် အန်တီဗိုင်းရပ်စ်)',
+    appSubtitle: 'အဆင့်မြင့် 3D ဆိုက်ဘာ နီယွန် ဗိုင်းရပ်စ်နှိမ်နင်းရေး စစ်ဆင်ရေး',
     language: 'ဘာသာစကား',
     languageName: 'မြန်မာဘာသာ',
     languageSwitch: '🌐 မြန်မာ / EN',

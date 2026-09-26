@@ -69,6 +69,42 @@ npx vercel --prod
 
 ---
 
+## 🔒 GitHub ပေါ်တင်ရာတွင် လုံခြုံစိတ်ချစေရန် စစ်ဆေးနည်းနှင့် မလုံခြုံသောဖိုင်များ ဖြုတ်နည်း (Security Guide)
+
+GitHub ပေါ်သို့ သင့်ကုဒ်များကို တင်ရာတွင် လုံခြုံရေးအရ စိတ်ချရစေရန် အောက်ပါအချက်များကို ပြင်ဆင်စီမံပေးထားပါသည်-
+
+### ၁။ အလိုအလျောက် ပိတ်ပင်ထားသော ဖိုင်များ (.gitignore Hardening)
+- `.env`, `.env.local`, `.env.*.local` (Local API Keys နှင့် Secrets များ)
+- `*.pem`, `*.key`, `*.cert` (Private Certificates များ)
+- `*serviceAccount*.json`, `*credentials*.json` (Cloud Admin Keys များ)
+- `node_modules/`, `dist/`, `.vercel/` (Build & Cache ဖိုင်များ)
+
+### ၂။ မတော်တဆ Git ထဲ ထည့်မိထားသော ဖိုင်များကို GitHub မှ ဖြုတ်နည်း (Untrack Files)
+အကယ်၍ သင့်ကွန်ပျူတာထဲရှိ လျှို့ဝှက်ဖိုင်တစ်ခုခု (ဥပမာ `.env` သို့မဟုတ် config) ကို `git add .` ဖြင့် မှားယွင်းထည့်မိပါက ကွန်ပျူတာထဲမှ file မပျက်စေဘဲ Git repository မှ ဖြုတ်ရန် အောက်ပါ command ကို သုံးပါ-
+
+```bash
+# Git tracking မှ ဖယ်ရှားခြင်း (Local ဖိုင် မပျက်ပါ)
+git rm --cached firebase-applet-config.json
+git rm --cached .env
+
+# Commit ပြန်လည်ပြင်ဆင်ခြင်း
+git commit -m "chore: remove sensitive config from git tracking"
+git push origin main
+```
+
+### ၃။ Git History ထဲမှ လုံးဝ ခြေရာဖျောက်လိုပါက
+အကယ်၍ ယခင် commit အဟောင်းများထဲတွင် လျှို့ဝှက် key တစ်ခုခု ပါသွားခဲ့ပါက အောက်ပါအတိုင်း နောက်ဆုံး commit ကို ပြင်နိုင်ပါသည်-
+```bash
+# နောက်ဆုံး commit ကို အသစ်ပြင်ဆင်ခြင်း
+git commit --amend --no-edit
+git push origin main --force
+```
+
+### ၄။ Zero-Trust Firestore Rules အကာအကွယ်
+ဤဂိမ်း၏ Firebase Firestore တွင် **`firestore.rules` (Default-Deny Zero-Trust)** ကို Deploy လုပ်ထားသောကြောင့် Repository ကို Public ထားလျှင်ပင် မသမာသူများက အခြားသူ၏ ရမှတ်များ၊ အခန်းများကို ဖျက်ဆီး/ခိုးယူခြင်း မပြုလုပ်နိုင်အောင် စနစ်တကျ ကာကွယ်ထားပြီး ဖြစ်ပါသည်။
+
+---
+
 ## 🎮 ကစားနည်း ထိန်းချုပ်မှုများ (Controls)
 
 | လုပ်ဆောင်ချက် (Action) | PC Keyboard & Mouse | မိုဘိုင်းလ်ဖုန်း (Mobile Touch) |

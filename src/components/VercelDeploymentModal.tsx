@@ -174,6 +174,34 @@ export const VercelDeploymentModal: React.FC<VercelDeploymentModalProps> = ({
             </div>
           </div>
 
+          {/* GitHub Security & Secrets Hardening */}
+          <div className="border border-amber-400/40 bg-amber-950/20 p-3.5 relative">
+            <div className="flex items-center gap-2 mb-1.5 text-amber-400 font-bold">
+              <ShieldCheck size={16} />
+              <span>{isMy ? '🔒 GitHub လုံခြုံရေး အထူးကာကွယ်မှု (Security & Secrets Protection)' : '🔒 GitHub Security & Secrets Protection'}</span>
+            </div>
+            <p className="text-gray-300 text-[11px] leading-relaxed mb-2">
+              {isMy
+                ? 'ဤပရောဂျက်၏ .gitignore တွင် .env၊ private keys၊ certificates နှင့် credentials ဖိုင်များကို အလိုအလျောက် ပိတ်ပင်ထားပါသည်။ အကယ်၍ လျှို့ဝှက်ဖိုင်တစ်ခုခုကို မတော်တဆ git ထဲ ထည့်မိပါက အောက်ပါ command ဖြင့် ကွန်ပျူတာထဲမှ မပျက်စေဘဲ GitHub tracking မှ အလွယ်တကူ ဖယ်ရှားနိုင်ပါသည် -'
+                : 'The hardened .gitignore blocks .env, private keys, certificates, and credentials. If an unintended file was tracked, safely remove it from git tracking without deleting it locally:'}
+            </p>
+            <div className="bg-[#020108] border border-amber-400/30 p-2 text-[10px] text-amber-200 flex items-center justify-between font-mono mb-2">
+              <code className="truncate mr-2">git rm --cached firebase-applet-config.json</code>
+              <button
+                onClick={() => handleCopy('git rm --cached firebase-applet-config.json', 3)}
+                className="px-2 py-1 bg-amber-400/20 hover:bg-amber-400 hover:text-black text-amber-300 font-bold transition-all flex items-center gap-1 shrink-0"
+              >
+                {copiedIndex === 3 ? <CheckCircle size={12} /> : <Copy size={12} />}
+                <span>{copiedIndex === 3 ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+            <div className="text-[10px] text-gray-400">
+              {isMy
+                ? '🛡️ Firestore Security Rules (Zero-Trust) ကို တပ်ဆင်ထားသောကြောင့် ပြင်ပမှ database ကို ခွင့်ပြုချက်မရှိဘဲ ဖျက်ဆီး/ပြင်ဆင်ခြင်း မပြုလုပ်နိုင်ပါ။'
+                : '🛡️ Enforced Zero-Trust Firestore Security Rules prevent unauthorized data manipulation even on public repositories.'}
+            </div>
+          </div>
+
           {/* Step 4: Multi-User WebRTC How-To */}
           <div className="border border-[#00FFD1]/40 bg-[#00FFD1]/10 p-3.5">
             <div className="flex items-center gap-2 mb-1.5 text-[#00FFD1] font-bold">

@@ -298,26 +298,35 @@ export const HUD: React.FC<HUDProps> = ({
               <span className="hidden sm:inline">{t.guideBtn}</span>
             </button>
 
-            {/* Sound Toggle (Desktop) */}
+            {/* Quick Audio Controls (Mobile & Desktop Instant Toggle) */}
             <button
               id="hud-sound-toggle"
               type="button"
               onClick={onToggleSound}
               aria-label="Toggle SFX"
-              className="hidden sm:flex w-6 h-6 sm:w-7 sm:h-7 items-center justify-center border border-[#00FFD1]/40 hover:border-[#00FFD1] hover:bg-[#00FFD1] hover:text-black text-[#00FFD1] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
+              title={settings.soundEnabled ? 'Mute SFX' : 'Enable SFX'}
+              className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border transition-all cursor-pointer touch-manipulation rounded-sm ${
+                settings.soundEnabled
+                  ? 'border-[#00FFD1] bg-[#00FFD1]/20 text-[#00FFD1] shadow-[0_0_8px_rgba(0,255,209,0.4)]'
+                  : 'border-white/20 bg-black/60 text-gray-500'
+              }`}
             >
-              {settings.soundEnabled ? <Volume2 size={12} /> : <VolumeX size={12} className="opacity-40" />}
+              {settings.soundEnabled ? <Volume2 size={12} /> : <VolumeX size={12} className="opacity-60" />}
             </button>
 
-            {/* Music Toggle (Desktop) */}
             <button
               id="hud-music-toggle"
               type="button"
               onClick={onToggleMusic}
               aria-label="Toggle Synth BGM"
-              className="hidden sm:flex w-6 h-6 sm:w-7 sm:h-7 items-center justify-center border border-[#FF00E5]/40 hover:border-[#FF00E5] hover:bg-[#FF00E5] hover:text-black text-[#FF00E5] bg-[#050505] transition-colors cursor-pointer touch-manipulation"
+              title={settings.musicEnabled ? 'Mute Synth BGM' : 'Enable Synth BGM'}
+              className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border transition-all cursor-pointer touch-manipulation rounded-sm ${
+                settings.musicEnabled
+                  ? 'border-[#FF00E5] bg-[#FF00E5]/20 text-[#FF00E5] shadow-[0_0_8px_rgba(255,0,229,0.4)]'
+                  : 'border-white/20 bg-black/60 text-gray-500'
+              }`}
             >
-              <Music size={12} className={settings.musicEnabled ? 'opacity-100' : 'opacity-40'} />
+              <Music size={12} className={settings.musicEnabled ? 'opacity-100 animate-pulse' : 'opacity-50'} />
             </button>
 
             {/* Mobile Quick Language Toggle */}

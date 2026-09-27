@@ -8630,16 +8630,25 @@ export class ThreeSceneManager {
   }
 
   public resize(width: number, height: number, dpr: number) {
-    this.renderer.setPixelRatio(dpr);
+    const isPortrait = height > width;
+    const isMobile = Math.min(width, height) < 600 || width < 900;
+    // Mobile Performance Optimization: Clamp DPR to 2 (or 1.5 on low-power mobile) to prevent GPU thermal throttling
+    const clampedDpr = isMobile ? Math.min(dpr || 1, 1.75) : Math.min(dpr || 1, 2);
+
+    this.renderer.setPixelRatio(clampedDpr);
     this.renderer.setSize(width, height, false);
     this.composer.setSize(width, height);
-    this.bloomPass.setSize(width * dpr, height * dpr);
+    this.bloomPass.setSize(width * clampedDpr, height * clampedDpr);
+
+    // Optimize shadow filtering on mobile for buttery smooth 60 FPS
+    if (isMobile) {
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    } else {
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
 
     const aspect = width / height;
     this.camera.aspect = aspect;
-
-    const isPortrait = height > width;
-    const isMobile = Math.min(width, height) < 600 || width < 900;
 
     // Natural human perspective FOV (58° portrait, 60° landscape)
     // Never balloon FOV to 138° which caused fish-eye distortion and graphics overflow

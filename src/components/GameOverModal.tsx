@@ -39,6 +39,47 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const formattedHighScore = highScore.toString().padStart(7, '0');
   const [submittedToFirebase, setSubmittedToFirebase] = React.useState(false);
 
+  // Dynamic Combat Performance Evaluation
+  const combatRank = React.useMemo(() => {
+    if (maxCombo >= 15 || score >= 15000) {
+      return {
+        rank: 'S-RANK',
+        title: currentLang === 'MY' ? 'CYBER GOD (ဆိုက်ဘာ နတ်ဘုရား)' : 'CYBER GOD (SUPREME)',
+        border: 'border-[#FFE600]',
+        bg: 'bg-[#FFE600]/15',
+        text: 'text-[#FFE600]',
+        glow: 'shadow-[0_0_20px_rgba(255,230,0,0.5)]',
+      };
+    } else if (maxCombo >= 10 || score >= 8000) {
+      return {
+        rank: 'A-RANK',
+        title: currentLang === 'MY' ? 'HYPER SLICER (ထိပ်တန်း တိုက်ခိုက်ရေးမှူး)' : 'HYPER SLICER',
+        border: 'border-[#FF00E5]',
+        bg: 'bg-[#FF00E5]/15',
+        text: 'text-[#FF00E5]',
+        glow: 'shadow-[0_0_15px_rgba(255,0,229,0.4)]',
+      };
+    } else if (maxCombo >= 5 || score >= 3000) {
+      return {
+        rank: 'B-RANK',
+        title: currentLang === 'MY' ? 'NEON VETERAN (စစ်ပြန် အော်ပရေတာ)' : 'NEON VETERAN',
+        border: 'border-[#00FFD1]',
+        bg: 'bg-[#00FFD1]/15',
+        text: 'text-[#00FFD1]',
+        glow: 'shadow-[0_0_15px_rgba(0,255,209,0.35)]',
+      };
+    } else {
+      return {
+        rank: 'C-RANK',
+        title: currentLang === 'MY' ? 'CYBER AGENT (အစပြု စစ်ဆင်ရေးသား)' : 'CYBER AGENT',
+        border: 'border-cyan-500/40',
+        bg: 'bg-black/60',
+        text: 'text-cyan-300',
+        glow: 'shadow-[0_0_10px_rgba(0,255,209,0.2)]',
+      };
+    }
+  }, [maxCombo, score, currentLang]);
+
   React.useEffect(() => {
     if (score > 0 && !submittedToFirebase) {
       multiplayer.submitHighScore('CyberOperative', score, distance, 1, maxCombo).then(() => {
@@ -141,6 +182,16 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               {t.allTimeHighScore}: {formattedHighScore}
             </span>
           )}
+
+          {/* Combat Evaluation Performance Badge */}
+          <div className={`mt-3 px-3 py-1.5 border ${combatRank.border} ${combatRank.bg} ${combatRank.glow} flex items-center gap-2 rounded text-xs font-black uppercase tracking-widest`}>
+            <span className={`px-1.5 py-0.5 bg-black/80 ${combatRank.text} font-black text-[10px] rounded border border-current`}>
+              {combatRank.rank}
+            </span>
+            <span className="text-white text-[11px]">
+              {combatRank.title}
+            </span>
+          </div>
         </div>
 
         {/* Telemetry Metrics Grid */}

@@ -1651,14 +1651,21 @@ export class ThreeSceneManager {
     const height = canvas.clientHeight || window.innerHeight || 600;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // 1. Create WebGLRenderer on the canvas
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-      alpha: false,
-      powerPreference: 'high-performance',
-      stencil: false,
-    });
+    // 1. Create WebGLRenderer on the canvas with safe GPU fallback
+    try {
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: this.canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance',
+        stencil: false,
+      });
+    } catch {
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: this.canvas,
+        antialias: false,
+      });
+    }
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
     this.renderer.shadowMap.enabled = true;

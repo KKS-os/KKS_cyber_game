@@ -1189,6 +1189,7 @@ export interface RhythmBeatState {
   beatPhase: number; // 0.0 to 1.0 within current beat
   pulseScale: number; // 1.0 to 1.4 for visual metronome pulse
   isNearBeat: boolean;
+  inBeatWindow?: boolean;
   accuracyMs: number; // Signed distance in ms to closest beat
   streak: number; // Consecutive on-beat strikes
   multiplier: number; // 1x to 3x+
@@ -1245,6 +1246,7 @@ export interface GameSettings {
 }
 
 export interface RadarTelemetryData {
+  range?: number;
   player: {
     x: number;
     y: number;

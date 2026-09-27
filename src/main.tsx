@@ -1,10 +1,15 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Failed to find root container element');
+}
+
+createRoot(rootElement).render(
+  <ErrorBoundary>
     <App />
-  </StrictMode>,
+  </ErrorBoundary>
 );

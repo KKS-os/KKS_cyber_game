@@ -47,12 +47,7 @@ export const CombatComboFeedback: React.FC<CombatComboFeedbackProps> = ({
     }
   }, [comboCount]);
 
-  // Only display when a combo streak is active (2 or more hits)
-  if (comboCount < 2 || comboTimer <= 0) {
-    return null;
-  }
-
-  // Determine Combo Tier based on streak count
+  // Determine Combo Tier based on streak count (Always called unconditionally - React Hook rules)
   const tier: CombatComboTier = useMemo(() => {
     if (comboCount >= 35) return 'APEX_GODLIKE';
     if (comboCount >= 20) return 'ULTRA';
@@ -61,7 +56,7 @@ export const CombatComboFeedback: React.FC<CombatComboFeedbackProps> = ({
     return 'NORMAL';
   }, [comboCount]);
 
-  // Visual styling and neon aura tailored to tier
+  // Visual styling and neon aura tailored to tier (Always called unconditionally)
   const tierConfig = useMemo(() => {
     switch (tier) {
       case 'APEX_GODLIKE':
@@ -112,6 +107,11 @@ export const CombatComboFeedback: React.FC<CombatComboFeedbackProps> = ({
         };
     }
   }, [tier, t]);
+
+  // Only display when a combo streak is active (2 or more hits) - placed AFTER all React hooks
+  if (comboCount < 2 || comboTimer <= 0) {
+    return null;
+  }
 
   // Calculate decay gauge percentage
   const timerRatio = Math.max(0, Math.min(1, comboTimer / Math.max(1, maxComboTimer)));

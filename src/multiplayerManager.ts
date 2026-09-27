@@ -309,6 +309,9 @@ export class MultiplayerManager {
 
         this.notifyPlayerUpdate();
         this.notifyRoomUpdate();
+      }, (err) => {
+        // Handled silently during offline or connection retry
+        console.debug('[Firebase] Remote players subscription waiting for network:', err?.message);
       });
     } catch (err) {
       console.warn('[Firebase] Players sync listener error:', err);
@@ -327,6 +330,9 @@ export class MultiplayerManager {
             }
           }
         });
+      }, (err) => {
+        // Handled silently during offline or connection retry
+        console.debug('[Firebase] Tactical pings subscription waiting for network:', err?.message);
       });
     } catch (err) {
       console.warn('[Firebase] Pings sync listener error:', err);

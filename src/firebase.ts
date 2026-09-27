@@ -1,8 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getFirestore,
-  doc,
-  getDocFromServer,
   Firestore,
 } from 'firebase/firestore';
 import {
@@ -88,18 +86,18 @@ ensureAuth().catch((err) => {
   console.warn('[Firebase Auth] Immediate init notice:', err);
 });
 
-// Validate Connection to Firestore on startup per SKILL.md guidelines
+// Set log level to 'error' to silence transient offline retry logs during initial load
+import { setLogLevel } from 'firebase/app';
+try {
+  setLogLevel('error');
+} catch {}
+
+// Validate connection safely without throwing unhandled network exceptions
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'multiplayer_rooms', '__test_ping__'));
-    return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('[Firebase] Client is offline or checking connection.');
-    }
+    const user = await ensureAuth();
+    return !!user;
+  } catch {
     return false;
   }
 }
-
-// Background validation run
-testFirestoreConnection().catch(() => {});

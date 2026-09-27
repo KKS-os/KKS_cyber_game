@@ -14,6 +14,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    overscroll-behavior: none;
     background-color: #060312;
     color: #00FFD1;
     font-family: 'Share Tech Mono', 'Chakra Petch', monospace;

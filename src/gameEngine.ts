@@ -888,12 +888,17 @@ export class GameEngine {
 
   // --- 1. HIGH-DPI RETINA CALIBRATION ---
 
-  /** Calibrate Canvas Resolution for true mobile & desktop full-screen without overflow */
+  /** Calibrate Canvas Resolution for true mobile, laptop & desktop full-screen without GPU lag or overflow */
   public calibrateRetinaDPI() {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     const vv = window.visualViewport;
     const cssWidth = Math.floor(vv?.width || window.innerWidth || document.documentElement.clientWidth || 390);
     const cssHeight = Math.floor(vv?.height || window.innerHeight || document.documentElement.clientHeight || 844);
+    const isMobile = Math.min(cssWidth, cssHeight) < 768 || ('ontouchstart' in window);
+
+    // Adaptive pixel ratio: 1.5 on mobile (prevents 3x/4x GPU thermal throttling on iPhones/Androids), 1.75 on desktop/laptop
+    this.dpr = isMobile
+      ? Math.min(window.devicePixelRatio || 1, 1.5)
+      : Math.min(window.devicePixelRatio || 1, 1.75);
 
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';

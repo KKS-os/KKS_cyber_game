@@ -22,6 +22,8 @@ import {
   Globe,
   Users,
   AlertTriangle,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   GameSettings,
@@ -67,6 +69,8 @@ interface HUDProps {
   onToggleLanguage?: () => void;
   onOpenTacticalPing?: () => void;
   onOpenMultiplayer?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -99,6 +103,8 @@ export const HUD: React.FC<HUDProps> = ({
   onToggleLanguage,
   onOpenTacticalPing,
   onOpenMultiplayer,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const currentLang: Language = settings.language || 'MY';
   const t = getTranslation(currentLang);
@@ -339,6 +345,24 @@ export const HUD: React.FC<HUDProps> = ({
                 className="flex sm:hidden w-6 h-6 items-center justify-center border border-cyan-400/40 text-[9px] font-bold text-[#00FFD1] bg-[#050505] cursor-pointer touch-manipulation"
               >
                 {currentLang === 'MY' ? '🇲🇲' : 'EN'}
+              </button>
+            )}
+
+            {/* Full Screen Quick Toggle Button */}
+            {onToggleFullscreen && (
+              <button
+                id="hud-fullscreen-btn"
+                type="button"
+                onClick={onToggleFullscreen}
+                aria-label={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+                title={isFullscreen ? 'Exit Full Screen (မျက်နှာပြင်လျှော့မည်)' : 'Full Screen (မျက်နှာပြင်အပြည့်)'}
+                className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border transition-all cursor-pointer touch-manipulation rounded-sm ${
+                  isFullscreen
+                    ? 'border-[#FFE600] bg-[#FFE600]/25 text-[#FFE600] shadow-[0_0_10px_rgba(255,230,0,0.5)]'
+                    : 'border-amber-400/50 bg-[#050505] text-amber-300 hover:border-amber-300 hover:bg-amber-400/20 shadow-[0_0_6px_rgba(251,191,36,0.2)]'
+                }`}
+              >
+                {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
               </button>
             )}
 

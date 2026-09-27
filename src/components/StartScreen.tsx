@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen, Globe, Users, UploadCloud, Crown } from 'lucide-react';
+import { Play, Volume2, VolumeX, Music, Compass, Zap, Crosshair, Shield, Activity, Radio, BookOpen, Globe, Users, UploadCloud, Crown, Maximize2, Minimize2 } from 'lucide-react';
 import { GameSettings, GameStats } from '../types';
 import { assetUrls } from '../assetLoader';
 import { CombatGuideMenu } from './CombatGuideMenu';
@@ -15,6 +15,8 @@ interface StartScreenProps {
   onUpdateSettings: (settings: Partial<GameSettings>) => void;
   onOpenMultiplayer?: () => void;
   onOpenVercelDeploy?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
@@ -25,6 +27,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onUpdateSettings,
   onOpenMultiplayer,
   onOpenVercelDeploy,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const [showCombatGuide, setShowCombatGuide] = useState<boolean>(false);
   const currentLang: Language = settings.language || 'MY';
@@ -356,6 +360,29 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <Music size={13} />
               <span>{t.synthBGM}: {settings.musicEnabled ? t.active : t.muted}</span>
             </button>
+
+            {onToggleFullscreen && (
+              <button
+                id="start-fullscreen-toggle"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFullscreen();
+                }}
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  onToggleFullscreen();
+                }}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 border rounded transition-all cursor-pointer flex items-center gap-1.5 touch-manipulation ${
+                  isFullscreen
+                    ? 'border-[#FFE600] text-[#FFE600] bg-[#FFE600]/15 shadow-[0_0_12px_rgba(255,230,0,0.4)]'
+                    : 'border-amber-400/50 text-amber-300 hover:border-amber-300 bg-amber-950/20'
+                }`}
+              >
+                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                <span>{isFullscreen ? 'EXIT FULLSCREEN' : (currentLang === 'MY' ? 'မျက်နှာပြင်အပြည့်' : 'FULLSCREEN')}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

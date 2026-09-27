@@ -122,6 +122,74 @@ export default function App() {
     }
   });
 
+  // Fullscreen Display State
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const toggleFullscreen = useCallback(() => {
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+
+    const isFs = !!(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+
+    if (!isFs) {
+      const requestFs =
+        docEl.requestFullscreen ||
+        docEl.webkitRequestFullscreen ||
+        docEl.mozRequestFullScreen ||
+        docEl.msRequestFullscreen;
+      if (requestFs) {
+        requestFs.call(docEl).catch((err: any) => {
+          console.warn('Fullscreen request failed:', err);
+        });
+      }
+    } else {
+      const exitFs =
+        doc.exitFullscreen ||
+        doc.webkitExitFullscreen ||
+        doc.mozCancelFullScreen ||
+        doc.msExitFullscreen;
+      if (exitFs) {
+        exitFs.call(doc).catch((err: any) => {
+          console.warn('Fullscreen exit failed:', err);
+        });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const doc = document as any;
+      setIsFullscreen(
+        !!(
+          doc.fullscreenElement ||
+          doc.webkitFullscreenElement ||
+          doc.mozFullScreenElement ||
+          doc.msFullscreenElement
+        )
+      );
+      if (engineRef.current) {
+        engineRef.current.calibrateRetinaDPI();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    document.addEventListener('mozfullscreenchange', handleFsChange);
+    document.addEventListener('MSFullscreenChange', handleFsChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+      document.removeEventListener('mozfullscreenchange', handleFsChange);
+      document.removeEventListener('MSFullscreenChange', handleFsChange);
+    };
+  }, []);
+
   // Touch Swipe tracking
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
@@ -711,6 +779,8 @@ export default function App() {
             onToggleLanguage={() => handleUpdateSettings({ language: (settings.language === 'MY' ? 'EN' : 'MY') })}
             onOpenTacticalPing={() => setShowTacticalPingWheel(true)}
             onOpenMultiplayer={() => setShowMultiplayerModal(true)}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
           />
         )}
 
@@ -750,6 +820,8 @@ export default function App() {
           onUpdateSettings={handleUpdateSettings}
           onOpenMultiplayer={() => setShowMultiplayerModal(true)}
           onOpenVercelDeploy={() => setShowVercelDeployModal(true)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       )}
 
@@ -797,6 +869,8 @@ export default function App() {
           onQuit={handleQuitToMenu}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       )}
 

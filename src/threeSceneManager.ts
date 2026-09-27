@@ -185,6 +185,9 @@ export class ThreeSceneManager {
   private lastFlashlightGlitchSoundTick: number = 0;
   private currentFlashlightGlitchThreat: number = 0;
 
+  // Adaptive Performance Throttling for Canvas Brand Textures
+  private goldenCanvasFrameCount: number = 0;
+
   // Frustum Culling Engine for Stable 60 FPS Performance
   private cameraFrustum: THREE.Frustum = new THREE.Frustum();
   private projScreenMatrix: THREE.Matrix4 = new THREE.Matrix4();
@@ -2247,11 +2250,15 @@ export class ThreeSceneManager {
     this.scene.add(this.ambientLight);
 
     // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1, 0.12 intensity for distant silhouette highlights)
+    const isMobileDevice = typeof window !== 'undefined' && (Math.min(window.innerWidth, window.innerHeight) < 768 || ('ontouchstart' in window));
+    const keyShadowRes = isMobileDevice ? 1024 : 2048;
+    const spotShadowRes = isMobileDevice ? 512 : 1024;
+
     this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.12);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
     this.dirCyanKeyLight.castShadow = true;
-    this.dirCyanKeyLight.shadow.mapSize.width = 2048;
-    this.dirCyanKeyLight.shadow.mapSize.height = 2048;
+    this.dirCyanKeyLight.shadow.mapSize.width = keyShadowRes;
+    this.dirCyanKeyLight.shadow.mapSize.height = keyShadowRes;
     this.dirCyanKeyLight.shadow.bias = -0.00015;
     this.dirCyanKeyLight.shadow.camera.near = 50;
     this.dirCyanKeyLight.shadow.camera.far = 3800;
@@ -2271,8 +2278,8 @@ export class ThreeSceneManager {
     this.heroSpotLight = new THREE.SpotLight(0xe8f8ff, 14.5, 1300, Math.PI / 3.4, 0.35, 1.2);
     this.heroSpotLight.position.set(0, 28, 0);
     this.heroSpotLight.castShadow = true;
-    this.heroSpotLight.shadow.mapSize.width = 1024;
-    this.heroSpotLight.shadow.mapSize.height = 1024;
+    this.heroSpotLight.shadow.mapSize.width = spotShadowRes;
+    this.heroSpotLight.shadow.mapSize.height = spotShadowRes;
     this.heroSpotLight.shadow.bias = -0.0001;
     this.heroSpotLight.shadow.camera.near = 10;
     this.heroSpotLight.shadow.camera.far = 1300;
@@ -3986,8 +3993,11 @@ export class ThreeSceneManager {
   ) {
     this.animTick += 0.032;
 
-    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (KKS, Cyber Game, Burma Batik)
-    this.renderGoldenCanvasTextures(this.animTick);
+    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Throttled to ~10 FPS for buttery smooth performance)
+    this.goldenCanvasFrameCount++;
+    if (this.goldenCanvasFrameCount % 6 === 0) {
+      this.renderGoldenCanvasTextures(this.animTick);
+    }
 
     // 1. Sync 3D Camera with 2D Player, Dynamic Neon Flickering & Enemy Proximity Flashlight Glitch
     this.update3DCamera(player, camera2D, screenShake, screenShakeAngle, settings, entities);

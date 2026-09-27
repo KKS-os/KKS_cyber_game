@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, LogOut, Play, Globe } from 'lucide-react';
+import { Settings, LogOut, Play, Globe, Maximize2, Minimize2 } from 'lucide-react';
 import { GameSettings } from '../types';
 import { Language, getTranslation } from '../localization';
 
@@ -9,6 +9,8 @@ interface PauseModalProps {
   onQuit: () => void;
   settings?: GameSettings;
   onUpdateSettings?: (settings: Partial<GameSettings>) => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const PauseModal: React.FC<PauseModalProps> = ({
@@ -17,6 +19,8 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onQuit,
   settings,
   onUpdateSettings,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const currentLang: Language = settings?.language || 'MY';
   const t = getTranslation(currentLang);
@@ -87,6 +91,26 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           <Play size={15} className="fill-current" />
           <span>{t.resumeRun}</span>
         </button>
+
+        {/* Fullscreen Quick Toggle Button */}
+        {onToggleFullscreen && (
+          <button
+            id="btn-pause-fullscreen"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFullscreen();
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              onToggleFullscreen();
+            }}
+            className="w-full max-w-xs py-2.5 mb-4 border border-amber-400/60 bg-amber-950/20 hover:bg-amber-400 hover:text-black text-amber-300 font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_12px_rgba(251,191,36,0.25)] cursor-pointer flex items-center justify-center gap-2 touch-manipulation"
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <span>{isFullscreen ? 'EXIT FULLSCREEN // မျက်နှာပြင်လျှော့မည်' : 'FULLSCREEN // မျက်နှာပြင်အပြည့်'}</span>
+          </button>
+        )}
 
         {/* Two Distinct Interactive Retro-Styled Buttons Centered Horizontally */}
         <div className="flex flex-row items-center justify-center gap-4 w-full max-w-xs">

@@ -23,13 +23,32 @@ export const RadarMinimap: React.FC<RadarMinimapProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const isMobile = typeof window !== 'undefined' && (Math.min(window.innerWidth, window.innerHeight) < 768 || ('ontouchstart' in window));
+    const dpr = isMobile ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
 
+    if (isMobile) {
+      try {
+        Object.defineProperty(ctx, 'shadowBlur', {
+          get: () => 0,
+          set: () => {},
+          configurable: true,
+        });
+      } catch {}
+    }
+
     let sweepAngle = 0;
+    let frameCount = 0;
 
     const render = () => {
+      frameCount++;
+      // On mobile, update radar at 30 FPS cadence (every 2nd frame) to cut secondary canvas load by 50%
+      if (isMobile && frameCount % 2 !== 0) {
+        animFrameIdRef.current = requestAnimationFrame(render);
+        return;
+      }
+
       ctx.save();
       ctx.scale(dpr, dpr);
 
@@ -51,8 +70,10 @@ export const RadarMinimap: React.FC<RadarMinimapProps> = ({
       // Outer Neon Cyan Ring & Glow
       ctx.strokeStyle = '#00FFD1';
       ctx.lineWidth = 2;
-      ctx.shadowColor = '#00FFD1';
-      ctx.shadowBlur = 12;
+      if (!isMobile) {
+        ctx.shadowColor = '#00FFD1';
+        ctx.shadowBlur = 12;
+      }
       ctx.stroke();
       ctx.shadowBlur = 0;
 

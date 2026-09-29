@@ -1,7 +1,9 @@
 {
-  "name": "react-example",
+  "name": "kks_cyber_game",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "KKS Cyberpunk: Neon Anti-Virus - Tactical 3D Action Multiplayer Web Game",
+  "homepage": "https://kks-os.github.io/KKS_cyber_game/",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",

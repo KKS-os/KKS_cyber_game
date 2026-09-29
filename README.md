@@ -43,12 +43,15 @@ git commit -m "feat: KKS Cyberpunk: Neon Anti-Virus v2.5 release"
 # 4. Main branch သတ်မှတ်ခြင်း
 git branch -M main
 
-# 5. သင့် GitHub Repository နှင့် ချိတ်ဆက်ခြင်း (YOUR_USERNAME နေရာတွင် သင့် username ထည့်ပါ)
-git remote add origin https://github.com/YOUR_USERNAME/kks-cyberpunk-neon-antivirus.git
+# 5. သင့် GitHub Repository နှင့် ချိတ်ဆက်ခြင်း
+git remote add origin https://github.com/kks-os/KKS_cyber_game.git
 
 # 6. GitHub သို့ Push တင်ခြင်း
 git push -u origin main
 ```
+
+**🌐 GitHub Pages Live Link:**
+👉 **`https://kks-os.github.io/KKS_cyber_game/`**
 
 ---
 
@@ -58,7 +61,7 @@ git push -u origin main
 
 #### နည်းလမ်း (A) - Vercel Dashboard ဖြင့် တင်နည်း (အလွယ်ဆုံး):
 1. [vercel.com/new](https://vercel.com/new) သို့ သွား၍ သင့် GitHub အကောင့်ဖြင့် Login ဝင်ပါ။
-2. ခုနက တင်ထားသော `kks-cyberpunk-neon-antivirus` repository ကို **Import** နှိပ်ပါ။
+2. သင်၏ `KKS_cyber_game` repository ကို **Import** နှိပ်ပါ။
 3. Framework Preset တွင် **Vite** ဟု အလိုအလျောက် ပေါ်နေမည်ဖြစ်ပြီး Build Command သည် `npm run build` ဖြစ်နေပါမည်။
 4. **Deploy** ခလုတ်ကို နှိပ်လိုက်ပါ။ စက္ကန့် ၄၀ အတွင်း Live Production URL (ဥပမာ `https://your-game.vercel.app`) ရရှိမည် ဖြစ်ပါသည်။
 

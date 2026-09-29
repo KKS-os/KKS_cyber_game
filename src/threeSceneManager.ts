@@ -50,6 +50,11 @@ export class ThreeSceneManager {
   private baseAdaptiveFov: number = 66;
   public isMobileDevice: boolean = false;
 
+  // Zero-Allocation Memory Pools for Silky 60-120 FPS (Prevents V8 GC Micro-Stutters)
+  private static readonly tmpTrailVec = new THREE.Vector3();
+  private static readonly tmpTrailColor = new THREE.Color();
+  private static readonly tmpParticleColor = new THREE.Color();
+
   // Post-Processing Pipeline
   public composer: EffectComposer;
   public bloomPass: UnrealBloomPass;
@@ -1673,7 +1678,8 @@ export class ThreeSceneManager {
         powerPreference: 'high-performance',
         stencil: false,
         precision: this.isMobileDevice ? 'mediump' : 'highp',
-      });
+        desynchronized: true, // Direct-to-compositor low-latency pipeline (Mobile Legends / Unreal grade)
+      } as any);
     } catch {
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.canvas,
@@ -1685,7 +1691,7 @@ export class ThreeSceneManager {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = this.isMobileDevice ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.toneMappingExposure = 1.35; // Rich deep cyber-noir blacks with vivid neon glow highlights
 
     // 2. Initialize 3D Scene & Cyberpunk Atmospheric Laboratory Lighting
     // Dark & Moody Cyberpunk Atmosphere (0x030610) with glowing soft neon accents
@@ -2267,14 +2273,14 @@ export class ThreeSceneManager {
 
   // --- 1. LIGHTING RIG (REAL-TIME 3D CYBER-ORGANIC ILLUMINATION & SHADOW RIG) ---
   private initLights() {
-    // 1. Pitch Cyber Noir Ambient Light (Enforces dark environment where flashlight is essential for visibility)
-    this.ambientLight = new THREE.AmbientLight(0x020308, 0.06);
+    // 1. Cyber Noir Ambient Light (Atmospheric depth with luminous blue undertones)
+    this.ambientLight = new THREE.AmbientLight(0x060c1c, 0.12);
     this.scene.add(this.ambientLight);
 
-    // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1, 0.12 intensity for distant silhouette highlights)
+    // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1 for distant silhouette highlights)
     const keyShadowRes = this.isMobileDevice ? 512 : 2048;
 
-    this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.12);
+    this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.22);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
     this.dirCyanKeyLight.castShadow = true;
     this.dirCyanKeyLight.shadow.mapSize.width = keyShadowRes;
@@ -2289,13 +2295,13 @@ export class ThreeSceneManager {
     this.dirCyanKeyLight.shadow.camera.bottom = -d;
     this.scene.add(this.dirCyanKeyLight);
 
-    // 3. Subtle Directional Rim Light (Vibrant Magenta 0xff00a0, 0.08 intensity for soft horizon glow)
-    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00a0, 0.08);
+    // 3. Directional Rim Light (Vibrant Magenta 0xff00e5 for high-contrast cinematic edge lighting)
+    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00e5, 0.18);
     this.dirMagentaRimLight.position.set(-500, 1100, -600);
     this.scene.add(this.dirMagentaRimLight);
 
     // 4. Real-Time High-Intensity Forward Flashlight (Forward-facing tactical spotlight illuminating dark terrain & revealing hazards)
-    this.heroSpotLight = new THREE.SpotLight(0xe8f8ff, 14.5, 1300, Math.PI / 3.4, 0.35, 1.2);
+    this.heroSpotLight = new THREE.SpotLight(0xe8f8ff, 15.5, 1400, Math.PI / 3.4, 0.35, 1.2);
     this.heroSpotLight.position.set(0, 28, 0);
     // On mobile, keep flashlight illuminated but disable second shadow pass to cut shadow GPU cost by 50%
     this.heroSpotLight.castShadow = !this.isMobileDevice;
@@ -2313,8 +2319,8 @@ export class ThreeSceneManager {
     this.heroSpotLight.target = this.heroSpotLightTarget;
     this.scene.add(this.heroSpotLight);
 
-    // 5. Player Dynamic Tactical PointLight (Subtle Core Neon Aura)
-    this.playerPointLight = new THREE.PointLight(0x00ffd1, 1.4, 300, 1.4);
+    // 5. Player Dynamic Tactical PointLight (Radiant Core Neon Aura)
+    this.playerPointLight = new THREE.PointLight(0x00ffd1, 2.0, 320, 1.2);
     this.playerPointLight.position.set(0, 30, 0);
     this.scene.add(this.playerPointLight);
 
@@ -3855,10 +3861,15 @@ export class ThreeSceneManager {
     baseColor: THREE.Color,
     intensityBoost: number
   ) {
-    history.unshift(currentPos.clone());
-    if (history.length > this.MAX_TRAIL_POINTS) {
-      history.pop();
+    // Zero-allocation ring buffer: recycle the oldest element instead of allocating new Vector3 each frame
+    let pointToInsert: THREE.Vector3;
+    if (history.length >= this.MAX_TRAIL_POINTS) {
+      pointToInsert = history.pop()!;
+      pointToInsert.copy(currentPos);
+    } else {
+      pointToInsert = currentPos.clone();
     }
+    history.unshift(pointToInsert);
 
     const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
     const colAttr = geo.getAttribute('color') as THREE.BufferAttribute;
@@ -3895,7 +3906,8 @@ export class ThreeSceneManager {
   }
 
   private updatePlayerNeonTrails(player: Player, activeNeonHex: number) {
-    const activeColor = new THREE.Color(activeNeonHex);
+    ThreeSceneManager.tmpTrailColor.set(activeNeonHex);
+    const activeColor = ThreeSceneManager.tmpTrailColor;
     const isDashing = player.dashTimer > 0;
     const isSlashing = player.slashTimer > 0;
     const speed = Math.hypot(player.velocity.x, player.velocity.y);
@@ -3904,30 +3916,30 @@ export class ThreeSceneManager {
     const swordBoost = isSlashing ? 3.2 : isDashing ? 2.5 : isMoving ? 1.4 : 0.6;
     const limbBoost = isDashing ? 2.6 : isMoving ? 1.3 : 0.35;
 
-    // 1. Katana Blade Tip World Position
-    const swordTip = new THREE.Vector3(0, -22, 0);
-    this.playerKatanaGroup.localToWorld(swordTip);
-    this.updateSingleTrail(this.swordTrailHistory, swordTip, this.swordTrailGeo, 2.8, activeColor, swordBoost);
+    // 1. Katana Blade Tip World Position (Zero Allocation)
+    ThreeSceneManager.tmpTrailVec.set(0, -22, 0);
+    this.playerKatanaGroup.localToWorld(ThreeSceneManager.tmpTrailVec);
+    this.updateSingleTrail(this.swordTrailHistory, ThreeSceneManager.tmpTrailVec, this.swordTrailGeo, 2.8, activeColor, swordBoost);
 
-    // 2. Left Gauntlet / Wrist World Position
-    const lHand = new THREE.Vector3(0, -18, 0);
-    this.playerLeftArm.localToWorld(lHand);
-    this.updateSingleTrail(this.leftHandTrailHistory, lHand, this.leftHandTrailGeo, 1.8, activeColor, limbBoost);
+    // 2. Left Gauntlet / Wrist World Position (Zero Allocation)
+    ThreeSceneManager.tmpTrailVec.set(0, -18, 0);
+    this.playerLeftArm.localToWorld(ThreeSceneManager.tmpTrailVec);
+    this.updateSingleTrail(this.leftHandTrailHistory, ThreeSceneManager.tmpTrailVec, this.leftHandTrailGeo, 1.8, activeColor, limbBoost);
 
-    // 3. Right Gauntlet / Wrist World Position
-    const rHand = new THREE.Vector3(0, -18, 0);
-    this.playerRightArm.localToWorld(rHand);
-    this.updateSingleTrail(this.rightHandTrailHistory, rHand, this.rightHandTrailGeo, 1.8, activeColor, limbBoost);
+    // 3. Right Gauntlet / Wrist World Position (Zero Allocation)
+    ThreeSceneManager.tmpTrailVec.set(0, -18, 0);
+    this.playerRightArm.localToWorld(ThreeSceneManager.tmpTrailVec);
+    this.updateSingleTrail(this.rightHandTrailHistory, ThreeSceneManager.tmpTrailVec, this.rightHandTrailGeo, 1.8, activeColor, limbBoost);
 
-    // 4. Left Ankle / Boot World Position
-    const lFoot = new THREE.Vector3(0, -21, 1.2);
-    this.playerLeftLeg.localToWorld(lFoot);
-    this.updateSingleTrail(this.leftFootTrailHistory, lFoot, this.leftFootTrailGeo, 1.8, activeColor, limbBoost);
+    // 4. Left Ankle / Boot World Position (Zero Allocation)
+    ThreeSceneManager.tmpTrailVec.set(0, -21, 1.2);
+    this.playerLeftLeg.localToWorld(ThreeSceneManager.tmpTrailVec);
+    this.updateSingleTrail(this.leftFootTrailHistory, ThreeSceneManager.tmpTrailVec, this.leftFootTrailGeo, 1.8, activeColor, limbBoost);
 
-    // 5. Right Ankle / Boot World Position
-    const rFoot = new THREE.Vector3(0, -21, 1.2);
-    this.playerRightLeg.localToWorld(rFoot);
-    this.updateSingleTrail(this.rightFootTrailHistory, rFoot, this.rightFootTrailGeo, 1.8, activeColor, limbBoost);
+    // 5. Right Ankle / Boot World Position (Zero Allocation)
+    ThreeSceneManager.tmpTrailVec.set(0, -21, 1.2);
+    this.playerRightLeg.localToWorld(ThreeSceneManager.tmpTrailVec);
+    this.updateSingleTrail(this.rightFootTrailHistory, ThreeSceneManager.tmpTrailVec, this.rightFootTrailGeo, 1.8, activeColor, limbBoost);
   }
 
   // --- 8. 3D PARTICLE SYSTEMS (SPARKS, SLLATTERS, BLOOD) ---
@@ -7405,10 +7417,10 @@ export class ThreeSceneManager {
       this.particlePositions[pIdx * 3 + 1] = 14 + Math.sin(this.animTick + i) * 6;
       this.particlePositions[pIdx * 3 + 2] = p.position.y;
 
-      const c = new THREE.Color(p.color || '#00ffd1');
-      this.particleColors[pIdx * 3] = c.r;
-      this.particleColors[pIdx * 3 + 1] = c.g;
-      this.particleColors[pIdx * 3 + 2] = c.b;
+      ThreeSceneManager.tmpParticleColor.set(p.color || '#00ffd1');
+      this.particleColors[pIdx * 3] = ThreeSceneManager.tmpParticleColor.r;
+      this.particleColors[pIdx * 3 + 1] = ThreeSceneManager.tmpParticleColor.g;
+      this.particleColors[pIdx * 3 + 2] = ThreeSceneManager.tmpParticleColor.b;
 
       pIdx++;
     }
@@ -7420,10 +7432,10 @@ export class ThreeSceneManager {
       this.particlePositions[pIdx * 3 + 1] = Math.max(2, 22 * (sp.life / sp.maxLife));
       this.particlePositions[pIdx * 3 + 2] = sp.y;
 
-      const c = new THREE.Color(sp.color || '#39ff14');
-      this.particleColors[pIdx * 3] = c.r;
-      this.particleColors[pIdx * 3 + 1] = c.g;
-      this.particleColors[pIdx * 3 + 2] = c.b;
+      ThreeSceneManager.tmpParticleColor.set(sp.color || '#39ff14');
+      this.particleColors[pIdx * 3] = ThreeSceneManager.tmpParticleColor.r;
+      this.particleColors[pIdx * 3 + 1] = ThreeSceneManager.tmpParticleColor.g;
+      this.particleColors[pIdx * 3 + 2] = ThreeSceneManager.tmpParticleColor.b;
 
       pIdx++;
     }

@@ -1906,7 +1906,10 @@ export class GameEngine {
   }
 
   public triggerHitstop(durationMs: number = 40) {
-    this.hitstopTimer = Math.max(this.hitstopTimer, Math.max(1, Math.round(durationMs / 16.66)));
+    // Smooth frame pacing: Eliminate hard physics freezes that feel like micro-stutters ("တထစ်ခြင်း")
+    const isMobile = Math.min(window.innerWidth, window.innerHeight) < 768 || ('ontouchstart' in window);
+    const maxFrames = isMobile ? 1 : 2;
+    this.hitstopTimer = Math.min(maxFrames, Math.max(1, Math.round(durationMs / 45)));
   }
 
   public applyDirectionalScreenShake(magnitude: number, angle?: number) {
@@ -1922,19 +1925,20 @@ export class GameEngine {
     sound.setMusicEnabled(newSettings.musicEnabled);
   }
 
-  // --- MAIN GAME LOOP WITH SCREEN-IMPACT FREEZING ---
+  // --- MAIN GAME LOOP WITH CINEMATIC TIME-DILATION & FLUID 60-120 FPS PACING ---
 
   public start() {
     this.lastTimestamp = performance.now();
     const loop = (timestamp: number) => {
-      const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
+      const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.05);
       this.lastTimestamp = timestamp;
 
       if (this.state === 'PLAYING') {
         if (this.hitstopTimer > 0) {
-          // Screen-impact freezing: Pause entity physics frames for 30-50ms on heavy strikes
+          // Cinematic impact micro-slowdown (0.25x) instead of hard freeze to maintain 60-120 FPS fluid motion
           this.hitstopTimer--;
-          if (this.screenShake > 0) this.screenShake *= 0.94;
+          this.update(dt * 0.25);
+          if (this.screenShake > 0) this.screenShake *= 0.92;
         } else {
           this.update(dt);
         }

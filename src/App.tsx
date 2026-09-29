@@ -125,7 +125,7 @@ export default function App() {
   // Fullscreen Display State
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  const toggleFullscreen = useCallback(() => {
+  const enterFullscreen = useCallback(() => {
     const doc = document as any;
     const docEl = document.documentElement as any;
 
@@ -143,10 +143,24 @@ export default function App() {
         docEl.mozRequestFullScreen ||
         docEl.msRequestFullscreen;
       if (requestFs) {
-        requestFs.call(docEl).catch((err: any) => {
-          console.warn('Fullscreen request failed:', err);
-        });
+        requestFs.call(docEl).catch(() => {});
       }
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+
+    const isFs = !!(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+
+    if (!isFs) {
+      enterFullscreen();
     } else {
       const exitFs =
         doc.exitFullscreen ||
@@ -159,7 +173,7 @@ export default function App() {
         });
       }
     }
-  }, []);
+  }, [enterFullscreen]);
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -182,13 +196,28 @@ export default function App() {
     document.addEventListener('mozfullscreenchange', handleFsChange);
     document.addEventListener('MSFullscreenChange', handleFsChange);
 
+    // 1. Immediately attempt auto-fullscreen on page load
+    enterFullscreen();
+
+    // 2. Trigger auto-fullscreen on the user's very first interaction anywhere (satisfies browser gesture policy)
+    const handleFirstGestureFullscreen = () => {
+      enterFullscreen();
+    };
+
+    window.addEventListener('pointerdown', handleFirstGestureFullscreen, { passive: true });
+    window.addEventListener('touchstart', handleFirstGestureFullscreen, { passive: true });
+    window.addEventListener('click', handleFirstGestureFullscreen, { passive: true });
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFsChange);
       document.removeEventListener('webkitfullscreenchange', handleFsChange);
       document.removeEventListener('mozfullscreenchange', handleFsChange);
       document.removeEventListener('MSFullscreenChange', handleFsChange);
+      window.removeEventListener('pointerdown', handleFirstGestureFullscreen);
+      window.removeEventListener('touchstart', handleFirstGestureFullscreen);
+      window.removeEventListener('click', handleFirstGestureFullscreen);
     };
-  }, []);
+  }, [enterFullscreen]);
 
   // Touch Swipe tracking
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -595,6 +624,7 @@ export default function App() {
   };
 
   const handleStartGame = () => {
+    enterFullscreen();
     lockLandscapeOrientation();
     if (engineRef.current) {
       engineRef.current.startGame();
@@ -602,12 +632,14 @@ export default function App() {
   };
 
   const handleResumeGame = () => {
+    enterFullscreen();
     if (engineRef.current) {
       engineRef.current.pauseGame();
     }
   };
 
   const handleRestartGame = () => {
+    enterFullscreen();
     lockLandscapeOrientation();
     setIsFallingIntoAbyss(false);
     setFallDepthMeters(0);

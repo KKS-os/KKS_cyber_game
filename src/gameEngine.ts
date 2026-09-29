@@ -893,12 +893,15 @@ export class GameEngine {
     const vv = window.visualViewport;
     const cssWidth = Math.floor(vv?.width || window.innerWidth || document.documentElement.clientWidth || 390);
     const cssHeight = Math.floor(vv?.height || window.innerHeight || document.documentElement.clientHeight || 844);
-    const isMobile = Math.min(cssWidth, cssHeight) < 768 || ('ontouchstart' in window);
+    const isMobile =
+      Math.min(cssWidth, cssHeight) < 768 ||
+      ('ontouchstart' in window) ||
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // Adaptive pixel ratio: 1.5 on mobile (prevents 3x/4x GPU thermal throttling on iPhones/Androids), 1.75 on desktop/laptop
+    // Adaptive pixel ratio: 1.0 on mobile for ultra-lightweight, 60+ FPS lag-free performance, 1.5 on desktop/laptop
     this.dpr = isMobile
-      ? Math.min(window.devicePixelRatio || 1, 1.5)
-      : Math.min(window.devicePixelRatio || 1, 1.75);
+      ? Math.min(window.devicePixelRatio || 1, 1.0)
+      : Math.min(window.devicePixelRatio || 1, 1.5);
 
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';

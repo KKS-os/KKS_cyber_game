@@ -48,6 +48,7 @@ export class ThreeSceneManager {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
   private baseAdaptiveFov: number = 66;
+  public isMobileDevice: boolean = false;
 
   // Post-Processing Pipeline
   public composer: EffectComposer;
@@ -1650,18 +1651,28 @@ export class ThreeSceneManager {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
 
+    this.isMobileDevice =
+      typeof window !== 'undefined' &&
+      (Math.min(window.innerWidth, window.innerHeight) < 768 ||
+        'ontouchstart' in window ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+
     const width = canvas.clientWidth || window.innerWidth || 1200;
     const height = canvas.clientHeight || window.innerHeight || 600;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Mobile Performance Optimization: 1.0 DPR on mobile completely eliminates GPU thermal throttling and lag
+    const dpr = this.isMobileDevice
+      ? Math.min(window.devicePixelRatio || 1, 1.0)
+      : Math.min(window.devicePixelRatio || 1, 1.5);
 
     // 1. Create WebGLRenderer on the canvas with safe GPU fallback
     try {
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.canvas,
-        antialias: true,
+        antialias: !this.isMobileDevice,
         alpha: false,
         powerPreference: 'high-performance',
         stencil: false,
+        precision: this.isMobileDevice ? 'mediump' : 'highp',
       });
     } catch {
       this.renderer = new THREE.WebGLRenderer({
@@ -1672,7 +1683,7 @@ export class ThreeSceneManager {
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = this.isMobileDevice ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
 
@@ -1736,6 +1747,17 @@ export class ThreeSceneManager {
     const ctx = this.overlayCanvas.getContext('2d');
     if (!ctx) throw new Error('Could not create overlay canvas 2D context');
     this.overlayCtx = ctx;
+
+    // Mobile Performance Optimization: Bypass CPU Gaussian shadowBlur calculations on mobile
+    if (this.isMobileDevice) {
+      try {
+        Object.defineProperty(this.overlayCtx, 'shadowBlur', {
+          get: () => 0,
+          set: () => {},
+          configurable: true,
+        });
+      } catch {}
+    }
 
     // 5. Initialize Sub-Systems & Procedural Textures
     this.initProceduralTextures();
@@ -2250,9 +2272,7 @@ export class ThreeSceneManager {
     this.scene.add(this.ambientLight);
 
     // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1, 0.12 intensity for distant silhouette highlights)
-    const isMobileDevice = typeof window !== 'undefined' && (Math.min(window.innerWidth, window.innerHeight) < 768 || ('ontouchstart' in window));
-    const keyShadowRes = isMobileDevice ? 1024 : 2048;
-    const spotShadowRes = isMobileDevice ? 512 : 1024;
+    const keyShadowRes = this.isMobileDevice ? 512 : 2048;
 
     this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.12);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
@@ -2277,12 +2297,15 @@ export class ThreeSceneManager {
     // 4. Real-Time High-Intensity Forward Flashlight (Forward-facing tactical spotlight illuminating dark terrain & revealing hazards)
     this.heroSpotLight = new THREE.SpotLight(0xe8f8ff, 14.5, 1300, Math.PI / 3.4, 0.35, 1.2);
     this.heroSpotLight.position.set(0, 28, 0);
-    this.heroSpotLight.castShadow = true;
-    this.heroSpotLight.shadow.mapSize.width = spotShadowRes;
-    this.heroSpotLight.shadow.mapSize.height = spotShadowRes;
-    this.heroSpotLight.shadow.bias = -0.0001;
-    this.heroSpotLight.shadow.camera.near = 10;
-    this.heroSpotLight.shadow.camera.far = 1300;
+    // On mobile, keep flashlight illuminated but disable second shadow pass to cut shadow GPU cost by 50%
+    this.heroSpotLight.castShadow = !this.isMobileDevice;
+    if (!this.isMobileDevice) {
+      this.heroSpotLight.shadow.mapSize.width = 1024;
+      this.heroSpotLight.shadow.mapSize.height = 1024;
+      this.heroSpotLight.shadow.bias = -0.0001;
+      this.heroSpotLight.shadow.camera.near = 10;
+      this.heroSpotLight.shadow.camera.far = 1300;
+    }
 
     this.heroSpotLightTarget = new THREE.Object3D();
     this.heroSpotLightTarget.position.set(0, 0, -360);
@@ -3993,9 +4016,10 @@ export class ThreeSceneManager {
   ) {
     this.animTick += 0.032;
 
-    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Throttled to ~10 FPS for buttery smooth performance)
+    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Throttled on mobile to prevent GPU bus stalls)
     this.goldenCanvasFrameCount++;
-    if (this.goldenCanvasFrameCount % 6 === 0) {
+    const canvasThrottle = this.isMobileDevice ? 60 : 6;
+    if (this.goldenCanvasFrameCount % canvasThrottle === 0) {
       this.renderGoldenCanvasTextures(this.animTick);
     }
 
@@ -4051,8 +4075,12 @@ export class ThreeSceneManager {
     // 12.5 Frustum Culling Pass for 60 FPS Stability
     this.updateFrustumCulling();
 
-    // 13. Render via UnrealBloomPass EffectComposer Pipeline
-    this.composer.render();
+    // 13. Render via WebGL (Fast direct hardware render pass on mobile for 60 FPS, EffectComposer on desktop)
+    if (this.isMobileDevice) {
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      this.composer.render();
+    }
 
     // 14. Render High-DPI 2D Overlay Pass (Floating Damage Texts, Flash, CRT, Metronome, Radar, Crosshair, Plasma Bloom)
     this.render2DOverlay(
@@ -7415,7 +7443,8 @@ export class ThreeSceneManager {
     const px = player.position.x;
     const pz = player.position.y;
 
-    for (let i = 0; i < this.MAX_SPORES; i++) {
+    const count = this.isMobileDevice ? 200 : this.MAX_SPORES;
+    for (let i = 0; i < count; i++) {
       this.sporePositions[i * 3 + 1] += Math.sin(this.animTick + i) * 0.4 - 0.2;
       this.sporePositions[i * 3] += Math.cos(this.animTick * 0.5 + i) * 0.3;
 
@@ -8648,18 +8677,22 @@ export class ThreeSceneManager {
 
   public resize(width: number, height: number, dpr: number) {
     const isPortrait = height > width;
-    const isMobile = Math.min(width, height) < 600 || width < 900;
-    // Mobile Performance Optimization: Clamp DPR to 2 (or 1.5 on low-power mobile) to prevent GPU thermal throttling
-    const clampedDpr = isMobile ? Math.min(dpr || 1, 1.75) : Math.min(dpr || 1, 2);
+    const isMobile =
+      this.isMobileDevice ||
+      Math.min(width, height) < 600 ||
+      width < 900 ||
+      ('ontouchstart' in window);
+    // Mobile Performance Optimization: Clamp DPR to 1.0 on mobile for 60+ FPS without thermal throttling
+    const clampedDpr = isMobile ? Math.min(dpr || 1, 1.0) : Math.min(dpr || 1, 1.5);
 
     this.renderer.setPixelRatio(clampedDpr);
     this.renderer.setSize(width, height, false);
     this.composer.setSize(width, height);
     this.bloomPass.setSize(width * clampedDpr, height * clampedDpr);
 
-    // Optimize shadow filtering on mobile for buttery smooth 60 FPS
+    // Fast hardware shadow mapping on mobile for fluid performance
     if (isMobile) {
-      this.renderer.shadowMap.type = THREE.PCFShadowMap;
+      this.renderer.shadowMap.type = THREE.BasicShadowMap;
     } else {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }

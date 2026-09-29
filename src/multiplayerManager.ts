@@ -65,6 +65,7 @@ export class MultiplayerManager {
   private unsubPlayers: Unsubscribe | null = null;
   private unsubPings: Unsubscribe | null = null;
   private lastFirestoreSyncTime: number = 0;
+  private lastP2PSyncTime: number = 0;
   private firestoreHeartbeatTimer: number | null = null;
 
   public isConnected = (): boolean => {
@@ -274,14 +275,23 @@ export class MultiplayerManager {
             // Check if player heartbeat is alive within last 12 seconds
             if (now - (data.lastSeen || 0) < 15000) {
               const existing = this.remotePlayers.get(data.id);
+              const targetX = data.x ?? 0;
+              const targetY = data.y ?? 0;
+              const vx = data.vx ?? 0;
+              const vy = data.vy ?? 0;
+              const targetAngle = data.angle ?? 0;
+
               const updatedState: RemotePlayerState = {
                 id: data.id,
                 name: data.name || 'Operative',
-                x: data.x || 0,
-                y: data.y || 0,
-                vx: data.vx || 0,
-                vy: data.vy || 0,
-                angle: data.angle || 0,
+                x: existing ? existing.x : targetX,
+                y: existing ? existing.y : targetY,
+                targetX,
+                targetY,
+                vx,
+                vy,
+                angle: existing ? existing.angle : targetAngle,
+                targetAngle,
                 health: data.integrity !== undefined ? data.integrity : 100,
                 maxHealth: 100,
                 integrity: data.integrity !== undefined ? data.integrity : 100,
@@ -298,6 +308,7 @@ export class MultiplayerManager {
                 score: data.score || 0,
                 kills: 0,
                 lastPingTime: now,
+                lastUpdateTime: now,
                 pingMs: existing?.pingMs || 30,
               };
               this.remotePlayers.set(data.id, updatedState);
@@ -353,26 +364,32 @@ export class MultiplayerManager {
   ) {
     if (!this.connected || !this.roomId) return;
 
-    // 1. High-frequency WebRTC P2P broadcast (Immediate sub-millisecond)
-    this.broadcastPacket('PLAYER_STATE', {
-      x: position.x,
-      y: position.y,
-      vx: velocity.x,
-      vy: velocity.y,
-      angle,
-      integrity,
-      score,
-      activeWeapon,
-      isSlashing,
-      isBlasting,
-      isDashing,
-      characterHue: this.localPlayerHue,
-      time: Date.now(),
-    });
-
-    // 2. Reliable Cloud Firestore synchronization (Throttled ~100ms)
     const now = Date.now();
-    if (now - this.lastFirestoreSyncTime > 100) {
+    const hasImmediateAction = isSlashing || isBlasting || isDashing;
+
+    // 1. Throttled P2P WebRTC broadcast (~50ms / 20Hz, or immediate upon action)
+    if (hasImmediateAction || now - this.lastP2PSyncTime >= 50) {
+      this.lastP2PSyncTime = now;
+      this.broadcastPacket('PLAYER_STATE', {
+        x: Math.round(position.x),
+        y: Math.round(position.y),
+        vx: Math.round(velocity.x * 10) / 10,
+        vy: Math.round(velocity.y * 10) / 10,
+        angle: Math.round(angle * 100) / 100,
+        integrity: Math.max(0, Math.round(integrity)),
+        score,
+        activeWeapon,
+        isSlashing,
+        isBlasting,
+        isDashing,
+        characterHue: this.localPlayerHue,
+        time: now,
+      });
+    }
+
+    // 2. Reliable Cloud Firestore synchronization (Throttled between 100-200ms: ~150ms)
+    // Minimizes mobile network strain, avoids frame drops and Firestore quota limits
+    if (now - this.lastFirestoreSyncTime >= 150) {
       this.lastFirestoreSyncTime = now;
       const playerRef = doc(db, 'multiplayer_rooms', this.roomId, 'players', this.localPlayerId);
       setDoc(
@@ -614,14 +631,23 @@ export class MultiplayerManager {
     if (type === 'PLAYER_STATE') {
       const existing = this.remotePlayers.get(senderId);
       const now = Date.now();
+      const targetX = payload.x ?? 0;
+      const targetY = payload.y ?? 0;
+      const vx = payload.vx ?? 0;
+      const vy = payload.vy ?? 0;
+      const targetAngle = payload.angle ?? 0;
+
       const updated: RemotePlayerState = {
         id: senderId,
         name: payload.name || existing?.name || 'Operative',
-        x: payload.x || 0,
-        y: payload.y || 0,
-        vx: payload.vx || 0,
-        vy: payload.vy || 0,
-        angle: payload.angle || 0,
+        x: existing ? existing.x : targetX,
+        y: existing ? existing.y : targetY,
+        targetX,
+        targetY,
+        vx,
+        vy,
+        angle: existing ? existing.angle : targetAngle,
+        targetAngle,
         health: payload.integrity !== undefined ? payload.integrity : (payload.health !== undefined ? payload.health : 100),
         maxHealth: 100,
         integrity: payload.integrity !== undefined ? payload.integrity : (payload.health !== undefined ? payload.health : 100),
@@ -638,6 +664,7 @@ export class MultiplayerManager {
         score: payload.score || 0,
         kills: payload.kills || 0,
         lastPingTime: now,
+        lastUpdateTime: now,
         pingMs: existing?.pingMs || 25,
       };
       this.remotePlayers.set(senderId, updated);
@@ -712,6 +739,48 @@ export class MultiplayerManager {
   private notifyPlayerUpdate() {
     if (this.onRemotePlayerUpdate) {
       this.onRemotePlayerUpdate(new Map(this.remotePlayers));
+    }
+  }
+
+  /**
+   * Client-Side Prediction (Dead Reckoning) & Hermite/Exponential Interpolation
+   * Smoothly updates remote player positions between 100-200ms Firestore packets
+   * eliminating all jitter, teleporting, or lag without taxing mobile CPUs.
+   */
+  public update(dt: number = 0.016) {
+    const now = Date.now();
+    for (const remote of this.remotePlayers.values()) {
+      if (remote.targetX === undefined || remote.targetY === undefined) continue;
+
+      // 1. Client-Side Prediction (Dead Reckoning)
+      // Extrapolate position along velocity vector for the time elapsed since last network snapshot
+      const elapsedSec = Math.max(0, (now - (remote.lastUpdateTime || now)) / 1000);
+      // Cap extrapolation at 350ms to prevent runaway overshoot during connection hitches
+      const clampedElapsed = Math.min(elapsedSec, 0.35);
+      // Velocity is in pixels per frame (~60 FPS)
+      const predictedX = remote.targetX + remote.vx * (clampedElapsed * 60);
+      const predictedY = remote.targetY + remote.vy * (clampedElapsed * 60);
+
+      // 2. Client-Side Interpolation
+      const dist = Math.hypot(predictedX - remote.x, predictedY - remote.y);
+      if (dist > 350) {
+        // Teleport threshold: snap instantly for large distance gaps (e.g. stage respawn)
+        remote.x = predictedX;
+        remote.y = predictedY;
+      } else {
+        // High-framerate exponential lerp smoothing (buttery smooth 60+ FPS)
+        const lerpFactor = Math.min(1, Math.max(0.12, dt * 14));
+        remote.x += (predictedX - remote.x) * lerpFactor;
+        remote.y += (predictedY - remote.y) * lerpFactor;
+      }
+
+      // 3. Shortest-path angular interpolation
+      if (remote.targetAngle !== undefined) {
+        let diff = remote.targetAngle - remote.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        remote.angle += diff * Math.min(1, Math.max(0.15, dt * 16));
+      }
     }
   }
 

@@ -97,6 +97,12 @@ export interface TranslationDictionary {
   musicDesc: string;
   crtScanlines: string;
   crtScanlinesDesc: string;
+  graphicsQuality: string;
+  graphicsQualityDesc: string;
+  lowGraphicsLabel: string;
+  mediumGraphicsLabel: string;
+  highGraphicsLabel: string;
+  ultraGraphicsLabel: string;
   languageSelect: string;
   languageSelectDesc: string;
   returnToPause: string;
@@ -310,6 +316,12 @@ export const translations: Record<Language, TranslationDictionary> = {
     musicDesc: 'Procedural dual-oscillator synthwave BGM',
     crtScanlines: 'CRT SCANLINES',
     crtScanlinesDesc: 'Retro arcade scanline raster overlay',
+    graphicsQuality: 'GRAPHICS QUALITY',
+    graphicsQualityDesc: 'Resolution scaler & shadow quality (Low recommended for mobile)',
+    lowGraphicsLabel: '⚡ LOW (60+ FPS)',
+    mediumGraphicsLabel: '⚖️ MEDIUM',
+    highGraphicsLabel: '💎 HIGH',
+    ultraGraphicsLabel: '👑 ULTRA',
     languageSelect: 'GAME LANGUAGE',
     languageSelectDesc: 'Switch interface between English & မြန်မာဘာသာ',
     returnToPause: 'RETURN TO PAUSE MENU',
@@ -518,6 +530,12 @@ export const translations: Record<Language, TranslationDictionary> = {
     musicDesc: 'Synthwave အီလက်ထရွန်းနစ် တေးဂီတနောက်ခံ',
     crtScanlines: 'CRT တီဗွီလိုင်း အထူးပြုလုပ်ချက်',
     crtScanlinesDesc: 'Retro Arcade စတိုင်လ် လိုင်းရိပ်အလွှာ',
+    graphicsQuality: 'ရုပ်ထွက် အရည်အသွေး (Graphics)',
+    graphicsQualityDesc: 'Resolution scaler နှင့် အရိပ်စနစ် (မိုဘိုင်းလ်တွင် LOW သုံးရန် အကြံပြုပါသည်)',
+    lowGraphicsLabel: '⚡ အပေါ့ဆုံး (60+ FPS)',
+    mediumGraphicsLabel: '⚖️ အလယ်အလတ်',
+    highGraphicsLabel: '💎 အကောင်းဆုံး',
+    ultraGraphicsLabel: '👑 အမြင့်ဆုံး',
     languageSelect: 'ဂိမ်း ဘာသာစကား',
     languageSelectDesc: 'မြန်မာဘာသာ နှင့် အင်္ဂလိပ်ဘာသာ အလွယ်တကူ ပြောင်းလဲနိုင်ပါသည်',
     returnToPause: 'ခေတ္တရပ်နား မီနူးသို့ ပြန်သွားမည်',

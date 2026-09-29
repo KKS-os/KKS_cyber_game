@@ -898,10 +898,28 @@ export class GameEngine {
       ('ontouchstart' in window) ||
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // Adaptive pixel ratio: 1.0 on mobile for ultra-lightweight, 60+ FPS lag-free performance, 1.5 on desktop/laptop
-    this.dpr = isMobile
-      ? Math.min(window.devicePixelRatio || 1, 1.0)
-      : Math.min(window.devicePixelRatio || 1, 1.5);
+    const quality = this.settings.graphicsQuality || (isMobile ? 'LOW' : 'HIGH');
+    const isLowMode = quality === 'LOW' || !!this.settings.lowGraphicsMode;
+
+    // Adaptive Resolution Scaler:
+    // LOW / Mobile: 0.75x (56% GPU fill-rate, buttery smooth 60+ FPS on all budget mobile devices)
+    // MEDIUM: 0.85x
+    // HIGH: 1.0x
+    // ULTRA: 1.25x - 1.5x (High-end desktop screens only)
+    let resScale = 1.0;
+    if (this.settings.resolutionScale) {
+      resScale = this.settings.resolutionScale;
+    } else if (isLowMode) {
+      resScale = 0.75;
+    } else if (quality === 'MEDIUM') {
+      resScale = 0.85;
+    } else if (quality === 'ULTRA') {
+      resScale = isMobile ? 1.0 : 1.5;
+    } else {
+      resScale = isMobile ? 0.85 : 1.0;
+    }
+
+    this.dpr = Math.max(0.65, Math.min(window.devicePixelRatio || 1, resScale));
 
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';
@@ -914,6 +932,7 @@ export class GameEngine {
     this.canvas.width = Math.floor(cssWidth * this.dpr);
     this.canvas.height = Math.floor(cssHeight * this.dpr);
 
+    this.threeManager?.applyGraphicsSettings(this.settings, isMobile);
     this.threeManager?.resize(cssWidth, cssHeight, this.dpr);
 
     this.camera.viewportWidth = cssWidth;
@@ -1923,6 +1942,7 @@ export class GameEngine {
     this.settings = newSettings;
     sound.setSoundEnabled(newSettings.soundEnabled);
     sound.setMusicEnabled(newSettings.musicEnabled);
+    this.calibrateRetinaDPI();
   }
 
   // --- MAIN GAME LOOP WITH CINEMATIC TIME-DILATION & FLUID 60-120 FPS PACING ---
@@ -2393,7 +2413,7 @@ export class GameEngine {
       );
     }
 
-    // 12. Multiplayer Co-Op Real-Time State Broadcast (WebRTC P2P)
+    // 12. Multiplayer Co-Op Real-Time State Broadcast & Client-Side Prediction Tick
     if (multiplayer.isConnected()) {
       multiplayer.broadcastPlayerState({
         x: this.player.position.x,
@@ -2413,6 +2433,9 @@ export class GameEngine {
         score: Math.floor(this.score),
         kills: this.objectiveState.stageEnemiesKilled || 0,
       });
+
+      // Advance client-side prediction & interpolation for remote operatives
+      multiplayer.update(dt);
     }
   }
 

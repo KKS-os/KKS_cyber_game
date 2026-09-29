@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Music, Monitor, ArrowLeft, Globe } from 'lucide-react';
+import { Volume2, VolumeX, Music, Monitor, ArrowLeft, Globe, Zap } from 'lucide-react';
 import { GameSettings } from '../types';
 import { Language, getTranslation } from '../localization';
 
@@ -139,6 +139,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               {settings.crtOverlay ? t.active : t.off}
             </button>
+          </div>
+
+          {/* Graphics Quality & Resolution Scaler */}
+          <div className="flex flex-col gap-2 p-3 border border-[#00FFD1]/30 bg-[#050505] shadow-[0_0_10px_rgba(0,255,209,0.1)]">
+            <div className="flex items-center gap-2 text-left">
+              <Zap size={16} className="text-[#00FFD1]" />
+              <div>
+                <div className="text-xs font-bold text-white">{t.graphicsQuality}</div>
+                <div className="text-[9px] text-[#00FFD1]/70">{t.graphicsQualityDesc}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-1">
+              {(['LOW', 'MEDIUM', 'HIGH', 'ULTRA'] as const).map((q) => {
+                const isSelected = (settings.graphicsQuality || 'LOW') === q;
+                const label =
+                  q === 'LOW'
+                    ? t.lowGraphicsLabel
+                    : q === 'MEDIUM'
+                    ? t.mediumGraphicsLabel
+                    : q === 'HIGH'
+                    ? t.highGraphicsLabel
+                    : t.ultraGraphicsLabel;
+
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() =>
+                      onUpdateSettings({
+                        graphicsQuality: q,
+                        lowGraphicsMode: q === 'LOW',
+                        resolutionScale: q === 'LOW' ? 0.75 : q === 'MEDIUM' ? 0.85 : q === 'HIGH' ? 1.0 : 1.5,
+                      })
+                    }
+                    className={`py-1.5 px-1 text-[10px] font-black border transition-all cursor-pointer touch-manipulation text-center ${
+                      isSelected
+                        ? 'border-[#00FFD1] bg-[#00FFD1] text-black shadow-[0_0_10px_#00FFD1]'
+                        : 'border-slate-800 bg-black/60 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

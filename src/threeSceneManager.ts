@@ -1670,10 +1670,17 @@ export class ThreeSceneManager {
       : Math.min(window.devicePixelRatio || 1, 1.5);
 
     // 1. Create WebGLRenderer on the canvas with safe GPU fallback
+    // Enable antialiasing ONLY for high-end screens (desktop 1080p/Retina) - never on mobile to prevent GPU thermal throttling
+    const isHighEndScreen =
+      !this.isMobileDevice &&
+      typeof window !== 'undefined' &&
+      (window.devicePixelRatio || 1) >= 1.5 &&
+      window.innerWidth >= 1280;
+
     try {
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.canvas,
-        antialias: !this.isMobileDevice,
+        antialias: isHighEndScreen,
         alpha: false,
         powerPreference: 'high-performance',
         stencil: false,
@@ -2278,7 +2285,7 @@ export class ThreeSceneManager {
     this.scene.add(this.ambientLight);
 
     // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1 for distant silhouette highlights)
-    const keyShadowRes = this.isMobileDevice ? 512 : 2048;
+    const keyShadowRes = this.isMobileDevice ? 256 : 2048;
 
     this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.22);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
@@ -2342,6 +2349,44 @@ export class ThreeSceneManager {
     this.projectilePointLight = new THREE.PointLight(0x00ffd1, 0, 420, 1.8);
     this.projectilePointLight.position.set(0, 30, 0);
     this.scene.add(this.projectilePointLight);
+  }
+
+  // --- 1.2 DYNAMIC GRAPHICS QUALITY & MOBILE SHADOW TUNING ---
+  public applyGraphicsSettings(settings: GameSettings, isMobile: boolean) {
+    const quality = settings.graphicsQuality || (isMobile ? 'LOW' : 'HIGH');
+    const isLow = quality === 'LOW' || !!settings.lowGraphicsMode;
+
+    if (isLow) {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.BasicShadowMap;
+      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
+        this.dirCyanKeyLight.shadow.mapSize.width = 256;
+        this.dirCyanKeyLight.shadow.mapSize.height = 256;
+      }
+      if (this.heroSpotLight) {
+        this.heroSpotLight.castShadow = false;
+      }
+    } else if (quality === 'MEDIUM') {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.BasicShadowMap;
+      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
+        this.dirCyanKeyLight.shadow.mapSize.width = 512;
+        this.dirCyanKeyLight.shadow.mapSize.height = 512;
+      }
+      if (this.heroSpotLight) {
+        this.heroSpotLight.castShadow = false;
+      }
+    } else {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
+        this.dirCyanKeyLight.shadow.mapSize.width = isMobile ? 512 : 2048;
+        this.dirCyanKeyLight.shadow.mapSize.height = isMobile ? 512 : 2048;
+      }
+      if (this.heroSpotLight) {
+        this.heroSpotLight.castShadow = !isMobile;
+      }
+    }
   }
 
   // --- 1.5 HIGH-FIDELITY VOLUMETRIC FOG & ATMOSPHERIC MIST SYSTEM ---
@@ -4781,8 +4826,15 @@ export class ThreeSceneManager {
       // Smooth Position Interpolation
       const targetX = remote.x * this.WORLD_SCALE;
       const targetZ = remote.y * this.WORLD_SCALE;
-      entry.group.position.x += (targetX - entry.group.position.x) * 0.45;
-      entry.group.position.z += (targetZ - entry.group.position.z) * 0.45;
+      const dx = targetX - entry.group.position.x;
+      const dz = targetZ - entry.group.position.z;
+      if (Math.hypot(dx, dz) > 250) {
+        entry.group.position.x = targetX;
+        entry.group.position.z = targetZ;
+      } else {
+        entry.group.position.x += dx * 0.45;
+        entry.group.position.z += dz * 0.45;
+      }
 
       const isFalling = !!remote.isFallingIntoAbyss;
       if (isFalling) {

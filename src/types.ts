@@ -1231,6 +1231,8 @@ export interface SpeedrunDeltaInfo {
 // Game Settings
 export type Language = 'EN' | 'MY';
 
+export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA';
+
 export interface GameSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
@@ -1243,6 +1245,9 @@ export interface GameSettings {
   minimapEnabled?: boolean;
   ghostEnabled?: boolean;
   rhythmCombatEnabled?: boolean;
+  graphicsQuality?: GraphicsQuality;
+  resolutionScale?: number;
+  lowGraphicsMode?: boolean;
 }
 
 export interface RadarTelemetryData {
@@ -1402,6 +1407,8 @@ export interface RemotePlayerState {
   pingMs: number;
   targetX?: number;
   targetY?: number;
+  targetAngle?: number;
+  lastUpdateTime?: number;
 }
 
 export type MultiplayerMessageType =

@@ -49,6 +49,7 @@ export class ThreeSceneManager {
   public camera: THREE.PerspectiveCamera;
   private baseAdaptiveFov: number = 66;
   public isMobileDevice: boolean = false;
+  public isLowGraphicsMode: boolean = false;
 
   // Zero-Allocation Memory Pools for Silky 60-120 FPS (Prevents V8 GC Micro-Stutters)
   private static readonly tmpTrailVec = new THREE.Vector3();
@@ -2355,36 +2356,51 @@ export class ThreeSceneManager {
   public applyGraphicsSettings(settings: GameSettings, isMobile: boolean) {
     const quality = settings.graphicsQuality || (isMobile ? 'LOW' : 'HIGH');
     const isLow = quality === 'LOW' || !!settings.lowGraphicsMode;
+    this.isLowGraphicsMode = isLow;
 
     if (isLow) {
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.BasicShadowMap;
-      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
-        this.dirCyanKeyLight.shadow.mapSize.width = 256;
-        this.dirCyanKeyLight.shadow.mapSize.height = 256;
+      // 2GB RAM & Budget Mobile: Disable shadowMap completely (saves >50% GPU render time)
+      this.renderer.shadowMap.enabled = false;
+      if (this.dirCyanKeyLight) {
+        this.dirCyanKeyLight.castShadow = false;
       }
       if (this.heroSpotLight) {
         this.heroSpotLight.castShadow = false;
+      }
+      if (this.volumetricFogGroup) {
+        this.volumetricFogGroup.visible = false;
       }
     } else if (quality === 'MEDIUM') {
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.BasicShadowMap;
-      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
-        this.dirCyanKeyLight.shadow.mapSize.width = 512;
-        this.dirCyanKeyLight.shadow.mapSize.height = 512;
+      // On mobile, keep shadowMap disabled for smooth 60fps; on desktop, allow basic 256
+      this.renderer.shadowMap.enabled = !isMobile;
+      if (this.dirCyanKeyLight) {
+        this.dirCyanKeyLight.castShadow = !isMobile;
+        if (this.dirCyanKeyLight.shadow) {
+          this.dirCyanKeyLight.shadow.mapSize.width = 256;
+          this.dirCyanKeyLight.shadow.mapSize.height = 256;
+        }
       }
       if (this.heroSpotLight) {
         this.heroSpotLight.castShadow = false;
       }
+      if (this.volumetricFogGroup) {
+        this.volumetricFogGroup.visible = !isMobile;
+      }
     } else {
-      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.enabled = !isMobile;
       this.renderer.shadowMap.type = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
-      if (this.dirCyanKeyLight && this.dirCyanKeyLight.shadow) {
-        this.dirCyanKeyLight.shadow.mapSize.width = isMobile ? 512 : 2048;
-        this.dirCyanKeyLight.shadow.mapSize.height = isMobile ? 512 : 2048;
+      if (this.dirCyanKeyLight) {
+        this.dirCyanKeyLight.castShadow = true;
+        if (this.dirCyanKeyLight.shadow) {
+          this.dirCyanKeyLight.shadow.mapSize.width = isMobile ? 512 : 2048;
+          this.dirCyanKeyLight.shadow.mapSize.height = isMobile ? 512 : 2048;
+        }
       }
       if (this.heroSpotLight) {
         this.heroSpotLight.castShadow = !isMobile;
+      }
+      if (this.volumetricFogGroup) {
+        this.volumetricFogGroup.visible = true;
       }
     }
   }
@@ -3236,6 +3252,19 @@ export class ThreeSceneManager {
   private initPlayer3D() {
     this.playerGroup = new THREE.Group();
 
+    // 0. Lightweight Ground Contact Shadow Blob (Mobile Legends / Brawl Stars zero-overhead shadow)
+    const shadowGeo = new THREE.CircleGeometry(16, 16);
+    shadowGeo.rotateX(-Math.PI / 2);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x010206,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    });
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    contactShadow.position.y = 0.5;
+    this.playerGroup.add(contactShadow);
+
     // 1. High-Poly Sculpted Carbon/Titanium Cyborg Chassis
     const torsoGeo = new THREE.CylinderGeometry(7.2, 9.4, 23, 12);
     this.playerTorso = new THREE.Mesh(torsoGeo, this.materials.playerCarbonArmor);
@@ -4073,11 +4102,13 @@ export class ThreeSceneManager {
   ) {
     this.animTick += 0.032;
 
-    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Throttled on mobile to prevent GPU bus stalls)
+    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Skipped on low mode to prevent GPU bus stalls)
     this.goldenCanvasFrameCount++;
-    const canvasThrottle = this.isMobileDevice ? 60 : 6;
-    if (this.goldenCanvasFrameCount % canvasThrottle === 0) {
-      this.renderGoldenCanvasTextures(this.animTick);
+    if (!this.isLowGraphicsMode) {
+      const canvasThrottle = this.isMobileDevice ? 120 : 12;
+      if (this.goldenCanvasFrameCount % canvasThrottle === 0) {
+        this.renderGoldenCanvasTextures(this.animTick);
+      }
     }
 
     // 1. Sync 3D Camera with 2D Player, Dynamic Neon Flickering & Enemy Proximity Flashlight Glitch
@@ -4132,8 +4163,8 @@ export class ThreeSceneManager {
     // 12.5 Frustum Culling Pass for 60 FPS Stability
     this.updateFrustumCulling();
 
-    // 13. Render via WebGL (Fast direct hardware render pass on mobile for 60 FPS, EffectComposer on desktop)
-    if (this.isMobileDevice) {
+    // 13. Render via WebGL (Fast direct hardware render pass on mobile and low mode for 60 FPS, EffectComposer on desktop high mode)
+    if (this.isMobileDevice || this.isLowGraphicsMode) {
       this.renderer.render(this.scene, this.camera);
     } else {
       this.composer.render();
@@ -5048,7 +5079,7 @@ export class ThreeSceneManager {
     this.rainSystem.position.set(px, 0, pz);
 
     const pos = this.rainPositions;
-    const count = this.MAX_RAIN_DROPS;
+    const count = this.isLowGraphicsMode ? 80 : this.isMobileDevice ? 250 : this.MAX_RAIN_DROPS;
     const dt = 0.016;
 
     for (let i = 0; i < count; i++) {
@@ -7507,7 +7538,7 @@ export class ThreeSceneManager {
     const px = player.position.x;
     const pz = player.position.y;
 
-    const count = this.isMobileDevice ? 200 : this.MAX_SPORES;
+    const count = this.isLowGraphicsMode ? 50 : this.isMobileDevice ? 150 : this.MAX_SPORES;
     for (let i = 0; i < count; i++) {
       this.sporePositions[i * 3 + 1] += Math.sin(this.animTick + i) * 0.4 - 0.2;
       this.sporePositions[i * 3] += Math.cos(this.animTick * 0.5 + i) * 0.3;
@@ -8754,10 +8785,11 @@ export class ThreeSceneManager {
     this.composer.setSize(width, height);
     this.bloomPass.setSize(width * clampedDpr, height * clampedDpr);
 
-    // Fast hardware shadow mapping on mobile for fluid performance
-    if (isMobile) {
-      this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    // Fast hardware rendering: Disable expensive shadowMap pass on low mode and mobile
+    if (this.isLowGraphicsMode || isMobile) {
+      this.renderer.shadowMap.enabled = false;
     } else {
+      this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
 

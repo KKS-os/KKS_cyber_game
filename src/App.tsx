@@ -30,14 +30,29 @@ import {
   WeaponInfo,
 } from './types';
 
+const isMobileBrowser =
+  typeof window !== 'undefined' &&
+  (Math.min(window.innerWidth, window.innerHeight) < 768 ||
+    'ontouchstart' in window ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+
+const isLowSpecDevice =
+  isMobileBrowser ||
+  (typeof navigator !== 'undefined' &&
+    (('deviceMemory' in navigator && (navigator as any).deviceMemory <= 2) ||
+      ('hardwareConcurrency' in navigator && navigator.hardwareConcurrency <= 4)));
+
 const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   musicEnabled: true,
-  particlesLevel: 'HIGH',
-  crtOverlay: true,
+  particlesLevel: isLowSpecDevice ? 'LOW' : 'HIGH',
+  crtOverlay: !isLowSpecDevice,
   touchControls: true,
   characterHue: 0,
   language: 'MY',
+  graphicsQuality: isLowSpecDevice ? 'LOW' : 'HIGH',
+  lowGraphicsMode: isLowSpecDevice,
+  resolutionScale: isLowSpecDevice ? 0.75 : 1.0,
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -107,7 +122,18 @@ export default function App() {
   const [settings, setSettings] = useState<GameSettings>(() => {
     try {
       const saved = localStorage.getItem('cyberrunner_settings');
-      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (isLowSpecDevice && (!parsed.graphicsQuality || parsed.graphicsQuality === 'HIGH')) {
+          parsed.graphicsQuality = 'LOW';
+          parsed.lowGraphicsMode = true;
+          parsed.resolutionScale = 0.75;
+          parsed.particlesLevel = 'LOW';
+          parsed.crtOverlay = false;
+        }
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      }
+      return DEFAULT_SETTINGS;
     } catch {
       return DEFAULT_SETTINGS;
     }

@@ -17,6 +17,7 @@ interface StartScreenProps {
   onOpenVercelDeploy?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onOpenShowdown?: () => void;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
@@ -29,6 +30,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onOpenVercelDeploy,
   isFullscreen = false,
   onToggleFullscreen,
+  onOpenShowdown,
 }) => {
   const [showCombatGuide, setShowCombatGuide] = useState<boolean>(false);
   const currentLang: Language = settings.language || 'MY';
@@ -88,18 +90,39 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               </span>
             </div>
 
-            {/* Language Switcher Pill */}
-            <button
-              id="start-language-toggle"
-              type="button"
-              onClick={handleToggleLanguage}
-              onTouchEnd={handleToggleLanguage}
-              className="px-2.5 py-1 bg-cyan-950/80 border border-[#00FFD1] text-[#00FFD1] hover:bg-[#00FFD1] hover:text-black transition-all rounded text-[11px] font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,255,209,0.3)] cursor-pointer touch-manipulation"
-              title="Switch Language (မြန်မာ / English)"
-            >
-              <Globe size={12} />
-              <span>{currentLang === 'MY' ? '🇲🇲 မြန်မာ' : '🇬🇧 ENGLISH'}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onOpenShowdown && (
+                <button
+                  id="start-showdown-intro"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenShowdown();
+                  }}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                    onOpenShowdown();
+                  }}
+                  className="px-2.5 py-1 bg-pink-950/80 hover:bg-[#FF00E5] border border-[#FF00E5] text-[#FF00E5] hover:text-black transition-all rounded text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-[0_0_10px_rgba(255,0,229,0.3)] cursor-pointer touch-manipulation"
+                  title="Watch Hero vs Boss Anime Showdown Intro"
+                >
+                  <span>⚔️ {currentLang === 'MY' ? 'ထိပ်တိုက်ရင်ဆိုင်မှု' : 'SHOWDOWN INTRO'}</span>
+                </button>
+              )}
+
+              {/* Language Switcher Pill */}
+              <button
+                id="start-language-toggle"
+                type="button"
+                onClick={handleToggleLanguage}
+                onTouchEnd={handleToggleLanguage}
+                className="px-2.5 py-1 bg-cyan-950/80 border border-[#00FFD1] text-[#00FFD1] hover:bg-[#00FFD1] hover:text-black transition-all rounded text-[11px] font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,255,209,0.3)] cursor-pointer touch-manipulation"
+                title="Switch Language (မြန်မာ / English)"
+              >
+                <Globe size={12} />
+                <span>{currentLang === 'MY' ? '🇲🇲 မြန်မာ' : '🇬🇧 ENGLISH'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Title */}

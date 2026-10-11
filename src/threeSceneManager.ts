@@ -107,6 +107,7 @@ export class ThreeSceneManager {
   private playerKatanaCore: THREE.Mesh;
   private playerKatanaGlow: THREE.Mesh;
   private playerKatanaEnergyRing: THREE.Mesh;
+  private playerKatanaLightningGroup!: THREE.Group;
   private playerSheathedKatanaGroup: THREE.Group;
   private playerBlasterGroup: THREE.Group;
   private playerBlasterBody: THREE.Mesh;
@@ -120,6 +121,11 @@ export class ThreeSceneManager {
   private playerPlasmaFlameRight: THREE.Mesh;
   private playerHaloRing1: THREE.Mesh;
   private playerHaloRing2: THREE.Mesh;
+  private playerScarfGroup!: THREE.Group;
+  private playerScarfBonesLeft: THREE.Group[] = [];
+  private playerScarfBonesRight: THREE.Group[] = [];
+  private playerForearmBladeLeft!: THREE.Mesh;
+  private playerForearmBladeRight!: THREE.Mesh;
 
   // --- MULTIPLAYER SQUAD 3D RIG & WEBRTC MESHES ---
   public remotePlayersGroup: THREE.Group = new THREE.Group();
@@ -182,12 +188,14 @@ export class ThreeSceneManager {
   private prevPlayerAngle: number = 0;
   private cameraInitialized: boolean = false;
 
-  // Dynamic Neon Flickering & Threat Glitch System
-  private ambientFlickerTimer: number = 0;
-  private nextAmbientFlickerInterval: number = 4.2;
-  private isAmbientFlickering: boolean = false;
-  private ambientFlickerDuration: number = 0.28;
-  private ambientFlickerElapsed: number = 0;
+  // Dynamic Environmental Zone Progression & Power Surge / Blackout System ("မီးလာလိုက် မီးပျက်သွားလိုက်")
+  public currentZoneIndex: number = 0;
+  private blackoutCycleTimer: number = 0;
+  public isBlackoutActive: boolean = false;
+  private blackoutPhase: 'NORMAL' | 'FLICKER_DROP' | 'BLACKOUT' | 'SURGE_RESTORATION' = 'NORMAL';
+  private blackoutPhaseTimer: number = 0;
+  private thunderTimer: number = 0;
+  private lightningFlashAlpha: number = 0;
   private ambientFlickerFactor: number = 1.0;
   private lastFlashlightGlitchSoundTick: number = 0;
   private currentFlashlightGlitchThreat: number = 0;
@@ -577,6 +585,12 @@ export class ThreeSceneManager {
       color: 0x00ffd1,
       transparent: true,
       opacity: 0.92,
+    }),
+    playerScarfNeon: new THREE.MeshBasicMaterial({
+      color: 0x00ffd1,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
     }),
     // Ultra-Realistic Glowing Plasma Katana Blade Materials
     katanaBladeSpine: new THREE.MeshStandardMaterial({
@@ -1007,6 +1021,46 @@ export class ThreeSceneManager {
       emissiveIntensity: 2.2,
       roughness: 0.12,
       metalness: 0.92,
+    }),
+    // Electric Plasma Lightning Arc Material (Hero Katana matching artwork)
+    katanaLightningArc: new THREE.MeshBasicMaterial({
+      color: 0x88ffff,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+    katanaLightningCore: new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.98,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+    // Apex Bio-Mechanical Titan Boss Materials (Matching the Showdown Artwork)
+    bossCrimsonReactorCore: new THREE.MeshBasicMaterial({
+      color: 0xff0033,
+    }),
+    bossPredatorChitin: new THREE.MeshStandardMaterial({
+      color: 0x180208,
+      roughness: 0.18,
+      metalness: 0.88,
+      emissive: 0x240107,
+      emissiveIntensity: 0.5,
+    }),
+    bossPredatorFangs: new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.08,
+      metalness: 0.95,
+      emissive: 0x330011,
+      emissiveIntensity: 0.3,
+    }),
+    bossTendrilVeinMat: new THREE.MeshBasicMaterial({
+      color: 0xff0044,
+      transparent: true,
+      opacity: 0.92,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     }),
   };
 
@@ -2281,14 +2335,14 @@ export class ThreeSceneManager {
 
   // --- 1. LIGHTING RIG (REAL-TIME 3D CYBER-ORGANIC ILLUMINATION & SHADOW RIG) ---
   private initLights() {
-    // 1. Cyber Noir Ambient Light (Atmospheric depth with luminous blue undertones)
-    this.ambientLight = new THREE.AmbientLight(0x060c1c, 0.12);
+    // 1. High-Tech Ambient Light (Crisp daylight/dusk cyberpunk illumination with realistic visibility)
+    this.ambientLight = new THREE.AmbientLight(0x142848, 0.70);
     this.scene.add(this.ambientLight);
 
-    // 2. Subtle Directional Key Light (Electric Cyan 0x00ffd1 for distant silhouette highlights)
+    // 2. High-Fidelity Directional Key Light (Electric Cyan & Sunlight Brilliance)
     const keyShadowRes = this.isMobileDevice ? 256 : 2048;
 
-    this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.22);
+    this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.90);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
     this.dirCyanKeyLight.castShadow = true;
     this.dirCyanKeyLight.shadow.mapSize.width = keyShadowRes;
@@ -2304,7 +2358,7 @@ export class ThreeSceneManager {
     this.scene.add(this.dirCyanKeyLight);
 
     // 3. Directional Rim Light (Vibrant Magenta 0xff00e5 for high-contrast cinematic edge lighting)
-    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00e5, 0.18);
+    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00e5, 0.45);
     this.dirMagentaRimLight.position.set(-500, 1100, -600);
     this.scene.add(this.dirMagentaRimLight);
 
@@ -3278,6 +3332,21 @@ export class ThreeSceneManager {
     this.playerChestArmor.position.set(0, 2.5, 4.2);
     this.playerTorso.add(this.playerChestArmor);
 
+    // Glowing Neon Cyan Cyber Armor Muscle Channels (Exact match to Showdown Artwork)
+    const chestStripeLeft = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 0.5), this.materials.playerCyanNeon);
+    chestStripeLeft.position.set(-3.6, 1.8, 3.6);
+    chestStripeLeft.rotation.z = -0.25;
+    this.playerChestArmor.add(chestStripeLeft);
+
+    const chestStripeRight = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 0.5), this.materials.playerCyanNeon);
+    chestStripeRight.position.set(3.6, 1.8, 3.6);
+    chestStripeRight.rotation.z = 0.25;
+    this.playerChestArmor.add(chestStripeRight);
+
+    const absStripe = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.8, 0.5), this.materials.playerCyanNeon);
+    absStripe.position.set(0, -4.2, 3.6);
+    this.playerChestArmor.add(absStripe);
+
     // Reinforced Titanium Rib & Actuator Mounts
     const ribLeft = new THREE.Mesh(new THREE.BoxGeometry(2.5, 12, 5), this.materials.playerTitaniumTrim);
     ribLeft.position.set(-6.8, 0, 1.2);
@@ -3398,6 +3467,65 @@ export class ThreeSceneManager {
     antennaRight.rotation.z = -0.38;
     this.playerHeadGroup.add(antennaRight);
 
+    // Ninja Forehead Crest & Central Cyber Eye Sensor (Exact match to Showdown Art)
+    const crestPlate = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.2, 1.2), this.materials.playerTitaniumTrim);
+    crestPlate.position.set(0, 3.8, 4.8);
+    this.playerHeadGroup.add(crestPlate);
+
+    const crestGem = new THREE.Mesh(new THREE.OctahedronGeometry(1.4), this.materials.playerCyanNeon);
+    crestGem.position.set(0, 3.8, 5.5);
+    this.playerHeadGroup.add(crestGem);
+
+    // 2.5 FLOWING CYBER ENERGY SCARF / STREAMER SASH (100% faithful to Showdown & Hero Artwork)
+    this.playerScarfGroup = new THREE.Group();
+    this.playerScarfGroup.position.set(0, 13.5, -3.0);
+    this.playerTorso.add(this.playerScarfGroup);
+
+    // Glowing Cyber Scarf Neck Collar Mantle
+    const collarGeo = new THREE.CylinderGeometry(4.2, 4.6, 3.0, 16, 1, true);
+    const collarMesh = new THREE.Mesh(collarGeo, this.materials.playerScarfNeon);
+    this.playerScarfGroup.add(collarMesh);
+
+    // Build 2 flowing articulated streamers (Left & Right Sash Ribbons)
+    this.playerScarfBonesLeft = [];
+    this.playerScarfBonesRight = [];
+
+    const createScarfStreamer = (isLeft: boolean) => {
+      const bones: THREE.Group[] = [];
+      let parent: THREE.Group = this.playerScarfGroup;
+      const offsetX = isLeft ? -1.8 : 1.8;
+
+      for (let s = 0; s < 6; s++) {
+        const bone = new THREE.Group();
+        if (s === 0) {
+          bone.position.set(offsetX, -0.6, -1.8);
+        } else {
+          bone.position.set(0, -2.8, -3.2);
+        }
+
+        const width = Math.max(1.4, 3.8 - s * 0.45);
+        const length = 4.4;
+        const segGeo = new THREE.BoxGeometry(width, 0.35, length);
+        segGeo.translate(0, 0, -length / 2);
+        const segMesh = new THREE.Mesh(segGeo, this.materials.playerScarfNeon);
+        bone.add(segMesh);
+
+        // Core glowing white-hot energy fiber
+        const coreGeo = new THREE.BoxGeometry(width * 0.4, 0.45, length);
+        coreGeo.translate(0, 0, -length / 2);
+        const coreMesh = new THREE.Mesh(coreGeo, this.materials.katanaBladeCore);
+        bone.add(coreMesh);
+
+        parent.add(bone);
+        parent = bone;
+        bones.push(bone);
+      }
+      return bones;
+    };
+
+    this.playerScarfBonesLeft = createScarfStreamer(true);
+    this.playerScarfBonesRight = createScarfStreamer(false);
+
     // 3. Layered Carbon-Fiber Shoulder Pauldrons with Exposed Rotary Joint Servos
     const createPauldron = (isLeft: boolean) => {
       const pGroup = new THREE.Group();
@@ -3473,6 +3601,13 @@ export class ThreeSceneManager {
     lGauntletNeon.position.y = -12;
     this.playerLeftArm.add(lGauntletNeon);
 
+    // Left Forearm Nanotech Energy Fin Blade (Matching Showdown Art)
+    const lFinGeo = new THREE.ConeGeometry(1.6, 11, 4);
+    lFinGeo.rotateX(Math.PI / 2);
+    this.playerForearmBladeLeft = new THREE.Mesh(lFinGeo, this.materials.playerCyanNeon);
+    this.playerForearmBladeLeft.position.set(-2.8, -13.5, 0);
+    this.playerLeftArm.add(this.playerForearmBladeLeft);
+
     this.playerLeftArm.position.set(-11.5, 5.5, 0);
     this.playerTorso.add(this.playerLeftArm);
 
@@ -3511,6 +3646,13 @@ export class ThreeSceneManager {
     const rGauntletNeon = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.2, 5.5), this.materials.playerCyanNeon);
     rGauntletNeon.position.y = -12;
     this.playerRightArm.add(rGauntletNeon);
+
+    // Right Forearm Nanotech Energy Fin Blade (Matching Showdown Art)
+    const rFinGeo = new THREE.ConeGeometry(1.6, 11, 4);
+    rFinGeo.rotateX(Math.PI / 2);
+    this.playerForearmBladeRight = new THREE.Mesh(rFinGeo, this.materials.playerCyanNeon);
+    this.playerForearmBladeRight.position.set(2.8, -13.5, 0);
+    this.playerRightArm.add(this.playerForearmBladeRight);
 
     this.playerRightArm.position.set(11.5, 5.5, 0);
     this.playerTorso.add(this.playerRightArm);
@@ -3653,6 +3795,26 @@ export class ThreeSceneManager {
     bladeGlowGeo.translate(0, 21, 0.8);
     this.playerKatanaGlow = new THREE.Mesh(bladeGlowGeo, this.materials.katanaGlowRibbon);
     this.playerKatanaGroup.add(this.playerKatanaGlow);
+
+    // Dynamic Electric Lightning Arcs Crackling Along Blade (Exact match to Showdown Art)
+    this.playerKatanaLightningGroup = new THREE.Group();
+    for (let l = 0; l < 3; l++) {
+      const segGeo = new THREE.BufferGeometry();
+      const posArray = new Float32Array(7 * 3);
+      segGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const lLine = new THREE.Line(
+        segGeo,
+        new THREE.LineBasicMaterial({
+          color: l === 0 ? 0xffffff : 0x00ffd1,
+          linewidth: 2,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+        })
+      );
+      this.playerKatanaLightningGroup.add(lLine);
+    }
+    this.playerKatanaGroup.add(this.playerKatanaLightningGroup);
 
     this.playerKatanaGroup.position.set(0, -18, 4.5);
     this.playerKatanaGroup.rotation.x = Math.PI / 3.2;
@@ -4328,60 +4490,179 @@ export class ThreeSceneManager {
     this.camera.lookAt(this.smoothedLookAt.x, this.smoothedLookAt.y, this.smoothedLookAt.z);
 
     // =========================================================================
-    // 1. DYNAMIC RANDOM AMBIENT & BILLBOARD FLICKERING SYSTEM (မှိတ်တုတ်မှိတ်တုတ် မီးရောင်)
+    // 1. DYNAMIC ENVIRONMENTAL ZONE LIGHTING & POWER SURGE SYSTEM ("မီးလာလိုက် မီးပျက်သွားလိုက်")
     // =========================================================================
     const dt = 0.032;
-    this.ambientFlickerTimer += dt;
+    const distanceMeters = Math.abs(pz) * 0.05;
 
-    // Check if it's time to trigger an ambient light dropout/stutter (every 3 to 7 seconds)
-    if (!this.isAmbientFlickering && this.ambientFlickerTimer >= this.nextAmbientFlickerInterval) {
-      this.isAmbientFlickering = true;
-      this.ambientFlickerElapsed = 0;
-      this.ambientFlickerDuration = 0.2 + Math.random() * 0.25; // 0.20s to 0.45s rapid glitch
-      this.nextAmbientFlickerInterval = 3.0 + Math.random() * 4.0; // Next flicker in 3 to 7 seconds
-      this.ambientFlickerTimer = 0;
-      sound.playNeonFlicker();
+    // Determine Active Sector Zone:
+    // Zone 0 (0m - 250m): High-Tech Metro Core (Bright, realistic daylight/dusk cyberpunk illumination)
+    // Zone 1 (250m - 600m): Power Grid Blackout Hazard (Dynamic electrical stutter & blackout surge: "မီးလာလိုက် မီးပျက်သွားလိုက်")
+    // Zone 2 (600m - 1000m): Golden Chinatown & Ancient Matrix (Warm golden amber & imperial crimson lanterns)
+    // Zone 3 (1000m+): Toxic Bio-Storm & Thunder Lightning (Violet/emerald storm with sudden high-voltage lightning flashes)
+    let newZone = 0;
+    if (distanceMeters >= 1000) {
+      newZone = 3;
+    } else if (distanceMeters >= 600) {
+      newZone = 2;
+    } else if (distanceMeters >= 250) {
+      newZone = 1;
+    } else {
+      newZone = 0;
     }
 
-    if (this.isAmbientFlickering) {
-      this.ambientFlickerElapsed += dt;
-      if (this.ambientFlickerElapsed >= this.ambientFlickerDuration) {
-        this.isAmbientFlickering = false;
+    if (newZone !== this.currentZoneIndex) {
+      this.currentZoneIndex = newZone;
+      sound.setZone(newZone);
+    }
+
+    // Zone Lighting Configuration
+    let targetAmbientIntensity = 0.70;
+    let targetAmbientColor = 0x142848;
+    let targetKeyIntensity = 0.90;
+    let targetKeyColor = 0x00ffd1;
+    let targetRimIntensity = 0.45;
+    let targetRimColor = 0xff00e5;
+
+    if (this.currentZoneIndex === 0) {
+      // --- ZONE 0: HIGH-TECH METROPOLE (Bright, crystal-clear, realistic daytime visibility) ---
+      targetAmbientIntensity = 0.72;
+      targetAmbientColor = 0x142848;
+      targetKeyIntensity = 0.92;
+      targetKeyColor = 0x00ffd1;
+      targetRimIntensity = 0.45;
+      targetRimColor = 0xff00e5;
+      this.ambientFlickerFactor = 1.0;
+      this.isBlackoutActive = false;
+    } else if (this.currentZoneIndex === 1) {
+      // --- ZONE 1: POWER GRID HAZARD ("မီးလာလိုက် မီးပျက်သွားလိုက်" CYCLE) ---
+      this.blackoutCycleTimer += dt;
+      targetAmbientColor = 0x101a2c;
+      targetKeyColor = 0x00d4ff;
+
+      // Every 8.5 - 12.5 seconds, trigger a power failure event
+      if (this.blackoutPhase === 'NORMAL') {
+        targetAmbientIntensity = 0.52;
+        targetKeyIntensity = 0.72;
+        targetRimIntensity = 0.38;
         this.ambientFlickerFactor = 1.0;
-      } else {
-        // High-frequency failing neon tube strobe waveform with dark dropouts
-        const strobeWave = Math.sin(this.animTick * 60) + Math.sin(this.animTick * 115);
-        if (strobeWave < -0.4) {
-          this.ambientFlickerFactor = 0.04; // Near total pitch darkness
-        } else if (strobeWave < 0.2) {
-          this.ambientFlickerFactor = 0.28; // Low dim buzzing glow
-        } else if (Math.random() < 0.3) {
-          this.ambientFlickerFactor = 0.08; // Sudden glitch blackout
-        } else {
-          this.ambientFlickerFactor = 0.95; // Snap back
+        this.isBlackoutActive = false;
+
+        if (this.blackoutCycleTimer > 9.0 + (Math.sin(this.animTick * 0.1) + 1) * 1.8) {
+          this.blackoutPhase = 'FLICKER_DROP';
+          this.blackoutPhaseTimer = 0;
+          sound.playPowerFlicker();
+        }
+      } else if (this.blackoutPhase === 'FLICKER_DROP') {
+        this.blackoutPhaseTimer += dt;
+        // Rapid electrical voltage stutter (1.2s)
+        const stutterWave = Math.sin(this.animTick * 75) + Math.cos(this.animTick * 120);
+        this.ambientFlickerFactor = stutterWave < 0 ? 0.14 : 0.70;
+        targetAmbientIntensity = 0.28;
+        targetKeyIntensity = 0.32;
+        targetRimIntensity = 0.22;
+
+        if (this.blackoutPhaseTimer >= 1.2) {
+          this.blackoutPhase = 'BLACKOUT';
+          this.blackoutPhaseTimer = 0;
+          this.isBlackoutActive = true;
+        }
+      } else if (this.blackoutPhase === 'BLACKOUT') {
+        this.blackoutPhaseTimer += dt;
+        // Complete tactical sector blackout (3.2s duration)
+        // Red emergency alert pulses, hero flashlight beam cuts through dark
+        this.ambientFlickerFactor = 0.18;
+        targetAmbientIntensity = 0.12;
+        targetAmbientColor = 0x240608;
+        targetKeyIntensity = 0.10;
+        targetKeyColor = 0xff1133;
+        targetRimIntensity = 0.12;
+
+        if (this.blackoutPhaseTimer >= 3.2) {
+          this.blackoutPhase = 'SURGE_RESTORATION';
+          this.blackoutPhaseTimer = 0;
+          this.isBlackoutActive = false;
+          sound.playPowerSurgeRestored();
+        }
+      } else if (this.blackoutPhase === 'SURGE_RESTORATION') {
+        this.blackoutPhaseTimer += dt;
+        // Blinding power surge flare (0.45s) then back to normal
+        const surgeRatio = Math.max(0, 1 - this.blackoutPhaseTimer / 0.45);
+        targetAmbientIntensity = 0.52 + surgeRatio * 0.78; // Jumps to 1.30!
+        targetAmbientColor = 0x33ffff;
+        targetKeyIntensity = 0.72 + surgeRatio * 0.95;
+        targetKeyColor = 0xffffff;
+        targetRimIntensity = 0.48;
+        this.ambientFlickerFactor = 1.0;
+
+        if (this.blackoutPhaseTimer >= 0.5) {
+          this.blackoutPhase = 'NORMAL';
+          this.blackoutCycleTimer = 0;
         }
       }
-    } else {
-      this.ambientFlickerFactor = 1.0;
+    } else if (this.currentZoneIndex === 2) {
+      // --- ZONE 2: GOLDEN CHINATOWN & ANCIENT MATRIX (Warm golden amber & imperial crimson) ---
+      targetAmbientIntensity = 0.65;
+      targetAmbientColor = 0x2e1805; // Warm Golden Amber
+      targetKeyIntensity = 0.95;
+      targetKeyColor = 0xffaa22; // Radiant Gold Sunlight
+      targetRimIntensity = 0.55;
+      targetRimColor = 0xff1144; // Imperial Crimson
+      this.ambientFlickerFactor = 0.95 + Math.sin(this.animTick * 3) * 0.05;
+      this.isBlackoutActive = false;
+    } else if (this.currentZoneIndex === 3) {
+      // --- ZONE 3: TOXIC BIO-STORM & HIGH-VOLTAGE THUNDER LIGHTNING ---
+      this.thunderTimer += dt;
+      targetAmbientColor = 0x16062a; // Deep Violet
+      targetKeyColor = 0x9900ff;
+      targetRimColor = 0x00ff66; // Toxic Emerald
+
+      // Thunder & Lightning Strike Event (every 7 to 10 seconds)
+      if (this.thunderTimer >= 7.5 + (Math.sin(this.animTick * 0.2) + 1) * 1.5) {
+        this.thunderTimer = 0;
+        this.lightningFlashAlpha = 1.0;
+        sound.playThunderClap();
+      }
+
+      if (this.lightningFlashAlpha > 0) {
+        this.lightningFlashAlpha = Math.max(0, this.lightningFlashAlpha - dt * 3.5);
+        // Blinding white lightning bolt flash!
+        targetAmbientIntensity = 0.50 + this.lightningFlashAlpha * 1.4;
+        targetAmbientColor = 0xffffff;
+        targetKeyIntensity = 0.82 + this.lightningFlashAlpha * 2.5;
+        targetKeyColor = 0xd0f0ff;
+        this.ambientFlickerFactor = 1.0;
+      } else {
+        targetAmbientIntensity = 0.52;
+        targetKeyIntensity = 0.82;
+        targetRimIntensity = 0.45;
+        this.ambientFlickerFactor = 0.92 + Math.sin(this.animTick * 8) * 0.08;
+      }
+      this.isBlackoutActive = false;
     }
 
-    // Apply ambient flicker factor to global ambient and directional city lights
-    this.ambientLight.intensity = 0.18 * this.ambientFlickerFactor;
-    this.dirCyanKeyLight.intensity = 0.28 * this.ambientFlickerFactor;
-    this.dirMagentaRimLight.intensity = 0.22 * this.ambientFlickerFactor;
+    // Smoothly apply lighting state
+    this.ambientLight.color.setHex(targetAmbientColor);
+    this.ambientLight.intensity = targetAmbientIntensity * this.ambientFlickerFactor;
 
-    // Modulate wall billboards ("KKS", "Cyber Game", "Burma Batik") and neon trims
+    this.dirCyanKeyLight.color.setHex(targetKeyColor);
+    this.dirCyanKeyLight.intensity = targetKeyIntensity * this.ambientFlickerFactor;
+
+    this.dirMagentaRimLight.color.setHex(targetRimColor);
+    this.dirMagentaRimLight.intensity = targetRimIntensity * this.ambientFlickerFactor;
+
+    // Modulate wall billboards and neon trims to match lighting state
     if (this.goldenMaterials) {
-      const bEmissive = 0.4 * this.ambientFlickerFactor;
+      const bEmissive = (this.currentZoneIndex === 2 ? 0.75 : 0.55) * this.ambientFlickerFactor;
       this.goldenMaterials.kksH.emissiveIntensity = bEmissive;
       this.goldenMaterials.kksV.emissiveIntensity = bEmissive;
       this.goldenMaterials.cyberGameH.emissiveIntensity = bEmissive;
       this.goldenMaterials.cyberGameV.emissiveIntensity = bEmissive;
       this.goldenMaterials.burmaBatikH.emissiveIntensity = bEmissive;
       this.goldenMaterials.burmaBatikV.emissiveIntensity = bEmissive;
-      (this.goldenMaterials.goldNeonTrim as THREE.MeshStandardMaterial).emissiveIntensity = 0.45 * this.ambientFlickerFactor;
-      (this.goldenMaterials.goldNeonTrimBright as THREE.MeshStandardMaterial).emissiveIntensity = 0.48 * this.ambientFlickerFactor;
-      (this.goldenMaterials.amberNeonTrim as THREE.MeshStandardMaterial).emissiveIntensity = 0.4 * this.ambientFlickerFactor;
+      (this.goldenMaterials.goldNeonTrim as THREE.MeshStandardMaterial).emissiveIntensity = (this.currentZoneIndex === 2 ? 0.8 : 0.5) * this.ambientFlickerFactor;
+      (this.goldenMaterials.goldNeonTrimBright as THREE.MeshStandardMaterial).emissiveIntensity = (this.currentZoneIndex === 2 ? 0.9 : 0.55) * this.ambientFlickerFactor;
+      (this.goldenMaterials.amberNeonTrim as THREE.MeshStandardMaterial).emissiveIntensity = (this.currentZoneIndex === 2 ? 0.75 : 0.45) * this.ambientFlickerFactor;
     }
 
     // =========================================================================
@@ -4481,7 +4762,7 @@ export class ThreeSceneManager {
       const fwdX = Math.cos(player.angle + jitterAngle);
       const fwdZ = Math.sin(player.angle + jitterAngle);
 
-      const baseIntensity = isCovered ? 0.5 : isCrouching ? 2.0 : 4.2;
+      const baseIntensity = this.isBlackoutActive ? 14.0 : (isCovered ? 0.5 : isCrouching ? 2.0 : 4.5);
       this.heroSpotLight.position.set(px + (Math.random() - 0.5) * 3 * glitchAmount, 26, pz + (Math.random() - 0.5) * 3 * glitchAmount);
       this.heroSpotLightTarget.position.set(px + fwdX * 280 + jitterX, 12, pz + fwdZ * 280 + jitterZ);
       this.heroSpotLight.color.setHex(isOverdrive ? 0xff0055 : 0x00ffd1);
@@ -4490,7 +4771,7 @@ export class ThreeSceneManager {
       if (this.heroVolumetricCone) {
         this.heroVolumetricCone.position.set(px, 24, pz);
         this.heroVolumetricCone.rotation.y = -(player.angle + jitterAngle) + Math.PI / 2;
-        const baseConeOpacity = isCovered ? 0.04 : isCrouching ? 0.08 : 0.16;
+        const baseConeOpacity = this.isBlackoutActive ? 0.32 : (isCovered ? 0.04 : isCrouching ? 0.08 : 0.16);
         (this.heroVolumetricCone.material as THREE.MeshBasicMaterial).opacity = baseConeOpacity * beamStrobeFactor;
 
         // Electromagnetic interference color distortion when glitching near enemies
@@ -4675,6 +4956,25 @@ export class ThreeSceneManager {
           this.playerKatanaGlow.scale.set(idlePulse, 1.0, idlePulse);
         }
       }
+
+      // Dynamic Electric Lightning Jitter on Katana Blade (Matching Showdown Artwork)
+      if (this.playerKatanaLightningGroup && this.playerKatanaGroup.visible) {
+        const isSlashingNow = player.actionState === 'SLASHING' || (player.slashTimer && player.slashTimer > 0);
+        const arcSpread = isSlashingNow ? 4.5 : 1.8;
+        for (let l = 0; l < this.playerKatanaLightningGroup.children.length; l++) {
+          const line = this.playerKatanaLightningGroup.children[l] as THREE.Line;
+          const posAttr = line.geometry.attributes.position as THREE.BufferAttribute;
+          const arr = posAttr.array as Float32Array;
+          for (let v = 0; v < 7; v++) {
+            const t = v / 6;
+            const by = 2 + t * 40;
+            arr[v * 3] = (Math.random() - 0.5) * arcSpread;
+            arr[v * 3 + 1] = by + (Math.random() - 0.5) * 1.6;
+            arr[v * 3 + 2] = 0.8 + (Math.random() - 0.5) * arcSpread;
+          }
+          posAttr.needsUpdate = true;
+        }
+      }
     }
 
     // Dynamic Color Neon Shift (Overdrive / 130 BPM Beat Sync / Health State / EMP Jam / Stealth Cloak)
@@ -4742,6 +5042,41 @@ export class ThreeSceneManager {
     } else {
       this.playerPlasmaFlameLeft.scale.set(0.6 * bpmPulse, 0.7 * bpmPulse, 0.6 * bpmPulse);
       this.playerPlasmaFlameRight.scale.set(0.6 * bpmPulse, 0.7 * bpmPulse, 0.6 * bpmPulse);
+    }
+
+    // 2.5 Dynamic Wave & Wind Physics for Cyber Scarf Streamers (Matching Hero Concept Art)
+    if (this.playerScarfBonesLeft.length > 0 && this.playerScarfBonesRight.length > 0) {
+      const isDashing = player.dashTimer > 0;
+      const isSlashing = player.actionState === 'SLASHING' || (player.slashTimer && player.slashTimer > 0);
+      const waveFreq = isDashing ? 35 : isMoving ? 24 : 8;
+      const windLift = isDashing ? 0.48 : isMoving ? 0.36 : 0.08;
+      const waveAmp = isDashing ? 0.38 : isMoving ? 0.26 : 0.12;
+
+      for (let s = 0; s < this.playerScarfBonesLeft.length; s++) {
+        const phase = this.animTick * waveFreq - s * 0.65;
+        const pitchWave = Math.sin(phase) * waveAmp - windLift;
+        const yawWave = Math.cos(phase * 0.8) * (waveAmp * 0.7);
+
+        const leftBone = this.playerScarfBonesLeft[s];
+        const rightBone = this.playerScarfBonesRight[s];
+
+        leftBone.rotation.x = pitchWave + (isSlashing ? 0.4 : 0);
+        leftBone.rotation.y = yawWave;
+        leftBone.rotation.z = Math.sin(phase * 0.5) * 0.15;
+
+        rightBone.rotation.x = pitchWave + (isSlashing ? 0.4 : 0);
+        rightBone.rotation.y = -yawWave;
+        rightBone.rotation.z = -Math.sin(phase * 0.5) * 0.15;
+      }
+    }
+
+    // Update Cyber Scarf & Forearm Blades Glowing Neon Color
+    (this.materials.playerScarfNeon as THREE.MeshBasicMaterial).color.setHex(neonColor);
+    if (this.playerForearmBladeLeft) {
+      (this.playerForearmBladeLeft.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
+    }
+    if (this.playerForearmBladeRight) {
+      (this.playerForearmBladeRight.material as THREE.MeshBasicMaterial).color.setHex(neonColor);
     }
 
     // Update Dynamic Neon Motion Trails on Sword and Cybernetic Limbs

@@ -222,6 +222,15 @@ export interface TranslationDictionary {
   rotateDeviceDesc: string;
   rotateDeviceBtn: string;
   rotateDismiss: string;
+  loadingHeroVsBoss: string;
+  loadingHeroTitle: string;
+  loadingHeroWeapon: string;
+  loadingBossTitle: string;
+  loadingBossThreat: string;
+  loadingVersus: string;
+  loadingEnterMatrix: string;
+  loadingSkip: string;
+  loadingSystemReady: string;
 }
 
 export const translations: Record<Language, TranslationDictionary> = {
@@ -437,6 +446,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     rotateDeviceDesc: 'Please turn your device sideways into Landscape mode for full-screen tactical combat and optimal controls.',
     rotateDeviceBtn: 'LOCK LANDSCAPE MODE',
     rotateDismiss: 'CONTINUE ANYWAY',
+    loadingHeroVsBoss: 'CYBER NINJA VS APEX MUTANT TITAN',
+    loadingHeroTitle: 'HERO: CYBER NINJA // KKS OPERATIVE',
+    loadingHeroWeapon: 'HIGH-FREQUENCY PLASMA BLADES',
+    loadingBossTitle: 'BOSS: MUTANT BIO-LEVIATHAN',
+    loadingBossThreat: 'THREAT LEVEL: SSS // APEX BIO-HAZARD',
+    loadingVersus: 'VS',
+    loadingEnterMatrix: 'ENTER CYBERPUNK MATRIX',
+    loadingSkip: 'SKIP INTRO',
+    loadingSystemReady: 'SYSTEM 100% ONLINE // BATTLE READY',
   },
 
   MY: {
@@ -651,6 +669,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     rotateDeviceDesc: 'စစ်မြေပြင်မြင်ကွင်း အပြည့်အဝရရှိစေရန်နှင့် လက်နှစ်ဖက်ဖြင့် ကောင်းမွန်စွာ ထိန်းချုပ်နိုင်ရန် ဖုန်းကို ဘေးတိုက်လှည့်၍ ကစားပေးပါ။',
     rotateDeviceBtn: 'LANDSCAPE သို့ ပြောင်းမည်',
     rotateDismiss: 'ဆက်လက်ကစားမည်',
+    loadingHeroVsBoss: 'ဆိုက်ဘာ သူရဲကောင်း နှင့် ဘော့စ် မွန်းစတား ထိပ်တိုက်ရင်ဆိုင်မှု',
+    loadingHeroTitle: 'သူရဲကောင်း: ဆိုက်ဘာ နင်ဂျာ // KKS စစ်သည်',
+    loadingHeroWeapon: 'ပလာစမာ လေဆာ ဓားသိုင်းနှင့် သေနတ်',
+    loadingBossTitle: 'ဘော့စ်: ဗိုင်းရပ်စ် ဧရာမ သတ္တဝါကြီး (BIO-TITAN)',
+    loadingBossThreat: 'အန္တရာယ်အဆင့်: SSS // ဇီဝအဆိပ်သင့်မှု အမြင့်ဆုံး',
+    loadingVersus: 'VS',
+    loadingEnterMatrix: 'စတင်ကစားမည် // ENTER MATRIX',
+    loadingSkip: 'တိုက်ရိုက်ကျော်မည်',
+    loadingSystemReady: 'စနစ်အားလုံး ၁၀၀% အသင့်ဖြစ်ပြီ // တိုက်ပွဲဝင်ပါ',
   },
 };
 

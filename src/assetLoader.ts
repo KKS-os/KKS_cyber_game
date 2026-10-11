@@ -5,6 +5,7 @@ import heroUrl from './assets/images/cyber_ninja_hero_1787338119454.jpg';
 import mutantUrl from './assets/images/mutant_bacteria_beast_1787338130291.jpg';
 import portalUrl from './assets/images/cyber_exit_portal_1787338147298.jpg';
 import bioCoreUrl from './assets/images/encrypted_bio_core_1787338160625.jpg';
+import showdownUrl from './assets/images/hero_vs_boss_showdown_1791712734317.jpg';
 
 export interface GameAssetLibrary {
   bgCity: HTMLImageElement;
@@ -12,6 +13,7 @@ export interface GameAssetLibrary {
   mutant: HTMLImageElement;
   portal: HTMLImageElement;
   bioCore: HTMLImageElement;
+  showdown: HTMLImageElement;
   isLoaded: boolean;
 }
 
@@ -21,13 +23,14 @@ export const assetUrls = {
   mutant: mutantUrl,
   portal: portalUrl,
   bioCore: bioCoreUrl,
+  showdown: showdownUrl,
 };
 
 class AssetManager {
   private static instance: AssetManager;
   public assets: GameAssetLibrary;
   private loadedCount: number = 0;
-  private totalCount: number = 5;
+  private totalCount: number = 6;
 
   private constructor() {
     this.assets = {
@@ -36,6 +39,7 @@ class AssetManager {
       mutant: new Image(),
       portal: new Image(),
       bioCore: new Image(),
+      showdown: new Image(),
       isLoaded: false,
     };
 
@@ -76,6 +80,10 @@ class AssetManager {
     this.assets.bioCore.onload = checkLoaded;
     this.assets.bioCore.onerror = checkLoaded;
     this.assets.bioCore.src = bioCoreUrl;
+
+    this.assets.showdown.onload = checkLoaded;
+    this.assets.showdown.onerror = checkLoaded;
+    this.assets.showdown.src = showdownUrl;
   }
 }
 

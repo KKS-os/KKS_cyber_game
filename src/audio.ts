@@ -14,6 +14,8 @@ class SoundSynthesizer {
   private isBgmPlaying: boolean = false;
   private bgmStep: number = 0;
   private currentBpm: number = 130;
+  public currentZoneIndex: number = 0;
+  private lastZoneIndex: number = 0;
 
   constructor() {}
 
@@ -602,6 +604,189 @@ class SoundSynthesizer {
     } catch {}
   }
 
+  /** High-Voltage Transformer Flicker & Electrical Arc Buzz (မီးရောင်မှိတ်တုတ်နှင့် ဓာတ်အားပြတ်တောက်သံ) */
+  public playPowerFlicker() {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+      const t = this.ctx.currentTime;
+
+      // 1. 60Hz - 120Hz oscillating transformer hum
+      const humOsc = this.ctx.createOscillator();
+      const humGain = this.ctx.createGain();
+      humOsc.type = 'sawtooth';
+      humOsc.frequency.setValueAtTime(60, t);
+      humOsc.frequency.linearRampToValueAtTime(120, t + 0.12);
+      humOsc.frequency.linearRampToValueAtTime(45, t + 0.28);
+
+      const humFilter = this.ctx.createBiquadFilter();
+      humFilter.type = 'lowpass';
+      humFilter.frequency.setValueAtTime(450, t);
+
+      humGain.gain.setValueAtTime(0.35, t);
+      humGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+      humOsc.connect(humFilter);
+      humFilter.connect(humGain);
+      humGain.connect(this.sfxGain);
+
+      humOsc.start(t);
+      humOsc.stop(t + 0.32);
+
+      // 2. High-frequency electrical spark crackles
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (Math.random() < 0.25 ? 1 : 0.2);
+      }
+      const sparkSource = this.ctx.createBufferSource();
+      sparkSource.buffer = buffer;
+
+      const sparkFilter = this.ctx.createBiquadFilter();
+      sparkFilter.type = 'bandpass';
+      sparkFilter.frequency.setValueAtTime(2800, t);
+      sparkFilter.Q.setValueAtTime(4, t);
+
+      const sparkGain = this.ctx.createGain();
+      sparkGain.gain.setValueAtTime(0.25, t);
+      sparkGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+      sparkSource.connect(sparkFilter);
+      sparkFilter.connect(sparkGain);
+      sparkGain.connect(this.sfxGain);
+
+      sparkSource.start(t);
+      sparkSource.stop(t + 0.13);
+    } catch {}
+  }
+
+  /** Generator Power Surge & Grid Re-energize Sound (မီးအားပြန်တက်လာခြင်းနှင့် စွမ်းအင်လှိုင်းသံ) */
+  public playPowerSurgeRestored() {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+      const t = this.ctx.currentTime;
+
+      // Deep rising power turbine whoosh
+      const surgeOsc = this.ctx.createOscillator();
+      const surgeGain = this.ctx.createGain();
+      surgeOsc.type = 'sawtooth';
+      surgeOsc.frequency.setValueAtTime(70, t);
+      surgeOsc.frequency.exponentialRampToValueAtTime(540, t + 0.45);
+
+      const surgeFilter = this.ctx.createBiquadFilter();
+      surgeFilter.type = 'lowpass';
+      surgeFilter.frequency.setValueAtTime(250, t);
+      surgeFilter.frequency.exponentialRampToValueAtTime(2400, t + 0.45);
+      surgeFilter.Q.setValueAtTime(3.5, t);
+
+      surgeGain.gain.setValueAtTime(0.4, t);
+      surgeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+
+      surgeOsc.connect(surgeFilter);
+      surgeFilter.connect(surgeGain);
+      surgeGain.connect(this.sfxGain);
+
+      surgeOsc.start(t);
+      surgeOsc.stop(t + 0.52);
+
+      // Sci-fi power chime chord
+      const chimeFreqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      chimeFreqs.forEach((f, idx) => {
+        if (!this.ctx || !this.sfxGain) return;
+        const cOsc = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        cOsc.type = 'sine';
+        cOsc.frequency.setValueAtTime(f, t + 0.12 + idx * 0.04);
+        cGain.gain.setValueAtTime(0.18, t + 0.12 + idx * 0.04);
+        cGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+        cOsc.connect(cGain);
+        cGain.connect(this.sfxGain);
+        cOsc.start(t + 0.12 + idx * 0.04);
+        cOsc.stop(t + 0.46);
+      });
+    } catch {}
+  }
+
+  /** Distant Thunderstrike & Electrical Lightning Crack (မိုးကြိုးပစ်ခတ်သံနှင့် တုန်ခါမှု) */
+  public playThunderClap() {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+      const t = this.ctx.currentTime;
+
+      // 1. Initial supersonic lightning crack
+      const crackOsc = this.ctx.createOscillator();
+      const crackGain = this.ctx.createGain();
+      crackOsc.type = 'sawtooth';
+      crackOsc.frequency.setValueAtTime(800, t);
+      crackOsc.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+
+      crackGain.gain.setValueAtTime(0.55, t);
+      crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+
+      crackOsc.connect(crackGain);
+      crackGain.connect(this.sfxGain);
+      crackOsc.start(t);
+      crackOsc.stop(t + 0.11);
+
+      // 2. Rolling deep sub-bass thunder rumble
+      const rumbleSize = Math.floor(this.ctx.sampleRate * 0.9);
+      const rumbleBuf = this.ctx.createBuffer(1, rumbleSize, this.ctx.sampleRate);
+      const rData = rumbleBuf.getChannelData(0);
+      for (let i = 0; i < rumbleSize; i++) {
+        rData[i] = Math.random() * 2 - 1;
+      }
+      const rumbleSource = this.ctx.createBufferSource();
+      rumbleSource.buffer = rumbleBuf;
+
+      const rumbleFilter = this.ctx.createBiquadFilter();
+      rumbleFilter.type = 'lowpass';
+      rumbleFilter.frequency.setValueAtTime(160, t);
+      rumbleFilter.frequency.exponentialRampToValueAtTime(35, t + 0.85);
+
+      const rumbleGain = this.ctx.createGain();
+      rumbleGain.gain.setValueAtTime(0.65, t);
+      rumbleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+
+      rumbleSource.connect(rumbleFilter);
+      rumbleFilter.connect(rumbleGain);
+      rumbleGain.connect(this.sfxGain);
+
+      rumbleSource.start(t);
+      rumbleSource.stop(t + 0.92);
+    } catch {}
+  }
+
+  /** Sector Environmental Zone Transition Chime (ဇုန်အသစ်ကူးပြောင်းမှု အချက်ပေးသံ) */
+  public playZoneTransition() {
+    if (this.isMuted) return;
+    try {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+      const t = this.ctx.currentTime;
+
+      const freqs = [440, 554.37, 659.25, 880]; // A4, C#5, E5, A5
+      freqs.forEach((f, idx) => {
+        if (!this.ctx || !this.sfxGain) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, t + idx * 0.07);
+        gain.gain.setValueAtTime(0.22, t + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.07 + 0.35);
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(t + idx * 0.07);
+        osc.stop(t + idx * 0.07 + 0.36);
+      });
+    } catch {}
+  }
+
   /** Physical Cash Stack Pickup Sound */
   public playCashCollect() {
     if (this.isMuted) return;
@@ -1102,6 +1287,27 @@ class SoundSynthesizer {
     } catch {}
   }
 
+  public setZone(zoneIndex: number) {
+    if (this.currentZoneIndex === zoneIndex) return;
+    this.lastZoneIndex = this.currentZoneIndex;
+    this.currentZoneIndex = zoneIndex;
+    this.playZoneTransition();
+
+    // Zone-specific BPM (Metro 130, Blackout 122, Chinatown 128, Storm 138)
+    const zoneBpms = [130, 122, 128, 138];
+    const newBpm = zoneBpms[zoneIndex] || 130;
+    if (newBpm !== this.currentBpm) {
+      this.currentBpm = newBpm;
+      if (this.isBgmPlaying && this.bgmInterval !== null) {
+        clearInterval(this.bgmInterval);
+        const stepInterval = (60 / this.currentBpm / 4) * 1000;
+        this.bgmInterval = window.setInterval(() => {
+          this.tickBGM();
+        }, stepInterval);
+      }
+    }
+  }
+
   public updateGameSpeedBGM(_gameSpeedRatio: number) {
     // Graceful speed adjustment without interrupting audio loop
   }
@@ -1122,13 +1328,46 @@ class SoundSynthesizer {
       const step = this.bgmStep % 16;
       const bar = Math.floor((this.bgmStep % 64) / 16);
 
-      const bassChords = [
+      // Select chords based on active environmental zone:
+      // Zone 0 (Metro): Upbeat Cyber Synthwave (Dm, F, C, G)
+      // Zone 1 (Blackout Hazard): Dark Industrial Tension (C, B, Bb, Dm)
+      // Zone 2 (Golden Chinatown): Warm Oriental Pentatonic (Dm, Gm, Bb, Am)
+      // Zone 3 (Toxic Bio-Storm): Aggressive High-Octane (Dm, Dm, Eb, Db)
+      const metroChords = [
         [73.42, 146.83], // D2, D3
         [87.31, 174.61], // F2, F3
         [65.41, 130.81], // C2, C3
-        [98.0, 196.0], // G2, G3
+        [98.0, 196.0],   // G2, G3
       ];
-      const currentChord = bassChords[bar] || bassChords[0];
+      const blackoutChords = [
+        [65.41, 130.81], // C2, C3
+        [61.74, 123.47], // B1, B2
+        [58.27, 116.54], // Bb1, Bb2
+        [73.42, 146.83], // D2, D3
+      ];
+      const chinatownChords = [
+        [73.42, 110.0],  // D2, A2
+        [98.0, 146.83],  // G2, D3
+        [58.27, 116.54], // Bb1, Bb2
+        [110.0, 164.81], // A2, E3
+      ];
+      const stormChords = [
+        [73.42, 146.83], // D2, D3
+        [73.42, 146.83], // D2, D3
+        [77.78, 155.56], // Eb2, Eb3
+        [69.30, 138.59], // Db2, Db3
+      ];
+
+      const activeChords =
+        this.currentZoneIndex === 1
+          ? blackoutChords
+          : this.currentZoneIndex === 2
+          ? chinatownChords
+          : this.currentZoneIndex === 3
+          ? stormChords
+          : metroChords;
+
+      const currentChord = activeChords[bar] || activeChords[0];
 
       // 1. Kick Drum on every beat (steps 0, 4, 8, 12)
       if (step % 4 === 0) {
@@ -1136,8 +1375,8 @@ class SoundSynthesizer {
         const kickOsc = this.ctx.createOscillator();
         const kickGain = this.ctx.createGain();
         kickOsc.type = 'sine';
-        kickOsc.frequency.setValueAtTime(130, t);
-        kickOsc.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+        kickOsc.frequency.setValueAtTime(this.currentZoneIndex === 1 ? 110 : 130, t);
+        kickOsc.frequency.exponentialRampToValueAtTime(36, t + 0.12);
 
         kickGain.gain.setValueAtTime(0.35, t);
         kickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
@@ -1159,7 +1398,7 @@ class SoundSynthesizer {
 
         const snareFilter = this.ctx.createBiquadFilter();
         snareFilter.type = 'highpass';
-        snareFilter.frequency.setValueAtTime(1000, t);
+        snareFilter.frequency.setValueAtTime(this.currentZoneIndex === 1 ? 650 : 1000, t);
 
         const snareGain = this.ctx.createGain();
         snareGain.gain.setValueAtTime(0.18, t);
@@ -1184,8 +1423,8 @@ class SoundSynthesizer {
         osc.frequency.setValueAtTime(freq, t);
 
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(700, t);
-        filter.frequency.exponentialRampToValueAtTime(200, t + 0.12);
+        filter.frequency.setValueAtTime(this.currentZoneIndex === 1 ? 400 : 700, t);
+        filter.frequency.exponentialRampToValueAtTime(160, t + 0.12);
 
         gain.gain.setValueAtTime(0.18, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
@@ -1198,21 +1437,33 @@ class SoundSynthesizer {
         osc.stop(t + 0.13);
       }
 
-      // 4. Off-beat Synth Lead Arpeggio Melody
-      if (step % 4 === 2) {
-        const leadFreqs = [293.66, 349.23, 440.0, 587.33]; // D4, F4, A4, D5
+      // 4. Off-beat Synth Lead Arpeggio Melody (Zone Adaptive)
+      if (step % 4 === 2 || (this.currentZoneIndex === 2 && step % 2 === 1)) {
+        let leadFreqs: number[] = [293.66, 349.23, 440.0, 587.33]; // Zone 0: D4, F4, A4, D5
+        if (this.currentZoneIndex === 1) {
+          // Zone 1: Dark low-frequency industrial alarm pulses
+          leadFreqs = [220.0, 233.08, 246.94, 293.66]; // A3, Bb3, B3, D4
+        } else if (this.currentZoneIndex === 2) {
+          // Zone 2: Pentatonic Oriental Lead (D4, F4, G4, A4, C5, D5)
+          leadFreqs = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33];
+        } else if (this.currentZoneIndex === 3) {
+          // Zone 3: Piercing Sawtooth Darksynth (D5, Eb5, F5, A5)
+          leadFreqs = [587.33, 622.25, 698.46, 880.0];
+        }
+
         const leadOsc = this.ctx.createOscillator();
         const leadGain = this.ctx.createGain();
-        leadOsc.type = 'triangle';
+        leadOsc.type = this.currentZoneIndex === 3 ? 'sawtooth' : this.currentZoneIndex === 2 ? 'sine' : 'triangle';
         leadOsc.frequency.setValueAtTime(leadFreqs[(step + bar) % leadFreqs.length], t);
 
-        leadGain.gain.setValueAtTime(0.12, t);
-        leadGain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        const leadVol = this.currentZoneIndex === 3 ? 0.09 : 0.13;
+        leadGain.gain.setValueAtTime(leadVol, t);
+        leadGain.gain.exponentialRampToValueAtTime(0.001, t + (this.currentZoneIndex === 2 ? 0.16 : 0.1));
 
         leadOsc.connect(leadGain);
         leadGain.connect(this.musicGain);
         leadOsc.start(t);
-        leadOsc.stop(t + 0.11);
+        leadOsc.stop(t + (this.currentZoneIndex === 2 ? 0.17 : 0.11));
       }
 
       this.bgmStep++;

@@ -14,6 +14,7 @@ import { MultiplayerLobbyModal } from './components/MultiplayerLobbyModal';
 import { VercelDeploymentModal } from './components/VercelDeploymentModal';
 import { TacticalPingWheel } from './components/TacticalPingWheel';
 import { RotateDevicePrompt } from './components/RotateDevicePrompt';
+import { ShowdownLoadingScreen } from './components/ShowdownLoadingScreen';
 import { multiplayer } from './multiplayerManager';
 import {
   GameSettings,
@@ -105,6 +106,7 @@ export default function App() {
   const [showMultiplayerModal, setShowMultiplayerModal] = useState<boolean>(false);
   const [showVercelDeployModal, setShowVercelDeployModal] = useState<boolean>(false);
   const [showTacticalPingWheel, setShowTacticalPingWheel] = useState<boolean>(false);
+  const [showInitialLoading, setShowInitialLoading] = useState<boolean>(true);
 
   // Auto-detect multiplayer room from invite URL
   useEffect(() => {
@@ -880,6 +882,7 @@ export default function App() {
           onOpenVercelDeploy={() => setShowVercelDeployModal(true)}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          onOpenShowdown={() => setShowInitialLoading(true)}
         />
       )}
 
@@ -983,6 +986,16 @@ export default function App() {
           playerY={engineRef.current?.getPlayerPosition().y || 0}
           onClose={() => setShowTacticalPingWheel(false)}
           language={settings.language || 'MY'}
+        />
+      )}
+
+      {/* Anime Hero vs Boss Confrontation Loading & Cinematic Title Intro Screen */}
+      {showInitialLoading && (
+        <ShowdownLoadingScreen
+          language={settings.language || 'MY'}
+          onComplete={() => {
+            setShowInitialLoading(false);
+          }}
         />
       )}
 

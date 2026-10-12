@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Music, Monitor, ArrowLeft, Globe, Zap } from 'lucide-react';
+import { Volume2, VolumeX, Music, Monitor, ArrowLeft, Globe, Zap, Gamepad2, Vibrate, Crosshair } from 'lucide-react';
 import { GameSettings } from '../types';
 import { Language, getTranslation } from '../localization';
 
@@ -184,6 +184,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          {/* Touch Control Scheme (Dual Mode) */}
+          <div className="flex flex-col gap-2 p-3 border border-[#00FFD1]/30 bg-[#050505]">
+            <div className="flex items-center gap-2 text-left">
+              <Gamepad2 size={16} className="text-[#00FFD1]" />
+              <div>
+                <div className="text-xs font-bold text-white">{t.touchControlMode}</div>
+                <div className="text-[9px] text-[#00FFD1]/70">
+                  {currentLang === 'MY'
+                    ? 'ရွေ့လျား ဂျွိုင်းစတစ် သို့မဟုတ် Classic Fixed D-Pad ကို ရွေးချယ်နိုင်ပါသည်'
+                    : 'Choose between 360° Floating Dynamic Joystick and Fixed Classic D-Pad'}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ touchControlStyle: 'FLOATING' })}
+                className={`py-2 px-2 text-[10px] font-black border transition-all cursor-pointer touch-manipulation text-center flex items-center justify-center gap-1.5 ${
+                  (settings.touchControlStyle || 'FLOATING') === 'FLOATING'
+                    ? 'border-[#00FFD1] bg-[#00FFD1] text-black shadow-[0_0_10px_#00FFD1]'
+                    : 'border-slate-800 bg-black/60 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <span>🕹️</span>
+                <span>{t.floatingJoystick}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ touchControlStyle: 'FIXED_DPAD' })}
+                className={`py-2 px-2 text-[10px] font-black border transition-all cursor-pointer touch-manipulation text-center flex items-center justify-center gap-1.5 ${
+                  settings.touchControlStyle === 'FIXED_DPAD'
+                    ? 'border-[#FF00E5] bg-[#FF00E5] text-black shadow-[0_0_10px_#FF00E5]'
+                    : 'border-slate-800 bg-black/60 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <span>🎮</span>
+                <span>{t.fixedDpad}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Haptic Vibration */}
+          <div className="flex items-center justify-between p-3 border border-[#00FFD1]/20 bg-[#050505]">
+            <div className="flex items-center gap-2 text-left">
+              <Vibrate size={16} className={settings.hapticsEnabled !== false ? 'text-[#00FFD1]' : 'text-slate-500'} />
+              <div>
+                <div className="text-xs font-bold text-white">{t.haptics}</div>
+                <div className="text-[9px] text-[#00FFD1]/60">{t.hapticsDesc}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onUpdateSettings({ hapticsEnabled: settings.hapticsEnabled === false ? true : false })}
+              className={`px-3 py-1 text-xs font-black border transition-colors cursor-pointer touch-manipulation ${
+                settings.hapticsEnabled !== false
+                  ? 'border-[#00FFD1] bg-[#00FFD1] text-black shadow-[0_0_10px_#00FFD1]'
+                  : 'border-slate-700 text-slate-500'
+              }`}
+            >
+              {settings.hapticsEnabled !== false ? t.enabled : t.off}
+            </button>
+          </div>
+
+          {/* Twin-Stick Aiming Assist */}
+          <div className="flex items-center justify-between p-3 border border-[#FFE600]/20 bg-[#050505]">
+            <div className="flex items-center gap-2 text-left">
+              <Crosshair size={16} className={settings.twinStickAimEnabled !== false ? 'text-[#FFE600]' : 'text-slate-500'} />
+              <div>
+                <div className="text-xs font-bold text-white">{t.twinStickAim}</div>
+                <div className="text-[9px] text-[#FFE600]/60">{t.twinStickAimDesc}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onUpdateSettings({ twinStickAimEnabled: settings.twinStickAimEnabled === false ? true : false })}
+              className={`px-3 py-1 text-xs font-black border transition-colors cursor-pointer touch-manipulation ${
+                settings.twinStickAimEnabled !== false
+                  ? 'border-[#FFE600] bg-[#FFE600] text-black shadow-[0_0_10px_#FFE600]'
+                  : 'border-slate-700 text-slate-500'
+              }`}
+            >
+              {settings.twinStickAimEnabled !== false ? t.active : t.off}
+            </button>
           </div>
         </div>
 

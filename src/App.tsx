@@ -29,6 +29,7 @@ import {
   SpeedrunDeltaInfo,
   WeaponType,
   WeaponInfo,
+  TouchControlStyle,
 } from './types';
 
 const isMobileBrowser =
@@ -54,6 +55,9 @@ const DEFAULT_SETTINGS: GameSettings = {
   graphicsQuality: isLowSpecDevice ? 'LOW' : 'HIGH',
   lowGraphicsMode: isLowSpecDevice,
   resolutionScale: isLowSpecDevice ? 0.75 : 1.0,
+  touchControlStyle: 'FLOATING',
+  hapticsEnabled: true,
+  twinStickAimEnabled: true,
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -761,6 +765,57 @@ export default function App() {
     }
   };
 
+  const handleMoveUpAction = useCallback((active: boolean) => {
+    if (engineRef.current) engineRef.current.handleMoveUp(active);
+  }, []);
+
+  const handleMoveDownAction = useCallback((active: boolean) => {
+    if (engineRef.current) engineRef.current.handleMoveDown(active);
+  }, []);
+
+  const handleMoveLeftAction = useCallback((active: boolean) => {
+    if (engineRef.current) engineRef.current.handleMoveLeft(active);
+  }, []);
+
+  const handleMoveRightAction = useCallback((active: boolean) => {
+    if (engineRef.current) engineRef.current.handleMoveRight(active);
+  }, []);
+
+  const handleAimDirectionAction = useCallback((angle: number, force: number) => {
+    if (engineRef.current && force > 0.15) {
+      engineRef.current.setAimAngle(angle);
+    }
+  }, []);
+
+  const handleTogglePerformanceMode = useCallback(() => {
+    const isCurrentlyLow = settings.lowGraphicsMode || settings.graphicsQuality === 'LOW';
+    const newQuality = isCurrentlyLow ? 'HIGH' : 'LOW';
+    const newLowMode = !isCurrentlyLow;
+    const newScale = newLowMode ? 0.75 : 1.0;
+    handleUpdateSettings({
+      graphicsQuality: newQuality,
+      lowGraphicsMode: newLowMode,
+      resolutionScale: newScale,
+      particlesLevel: newLowMode ? 'LOW' : 'HIGH',
+      crtOverlay: !newLowMode,
+    });
+  }, [settings.lowGraphicsMode, settings.graphicsQuality, handleUpdateSettings]);
+
+  const handleToggleControlStyle = useCallback(
+    (newStyle: TouchControlStyle) => {
+      handleUpdateSettings({ touchControlStyle: newStyle });
+    },
+    [handleUpdateSettings]
+  );
+
+  const handleToggleHaptics = useCallback(() => {
+    handleUpdateSettings({ hapticsEnabled: settings.hapticsEnabled === false ? true : false });
+  }, [settings.hapticsEnabled, handleUpdateSettings]);
+
+  const handleToggleTwinStick = useCallback(() => {
+    handleUpdateSettings({ twinStickAimEnabled: settings.twinStickAimEnabled === false ? true : false });
+  }, [settings.twinStickAimEnabled, handleUpdateSettings]);
+
   return (
     <main
       id="game-viewport"
@@ -852,12 +907,16 @@ export default function App() {
           />
         )}
 
-        {/* 360-Degree Virtual Touch Joystick & Tactical Action Controls */}
+        {/* 360-Degree Virtual Touch Joystick & Tactical Action Controls (Dual Scheme & Modern Mobile Tech) */}
         {gameState === 'PLAYING' && settings.touchControls && (
           <VirtualJoystick
             onMoveVelocity={handleJoystickVelocity}
             onMove={handleJoystickMove}
             onEnd={handleJoystickEnd}
+            onMoveUp={handleMoveUpAction}
+            onMoveDown={handleMoveDownAction}
+            onMoveLeft={handleMoveLeftAction}
+            onMoveRight={handleMoveRightAction}
             onSlash={handleSlashAction}
             onStealthTakedown={handleStealthTakedownAction}
             onCrouch={handleCrouchAction}
@@ -865,7 +924,17 @@ export default function App() {
             onShoot={handleShootAction}
             onDash={handleDashAction}
             onHack={handleHackAction}
+            onAimDirection={handleAimDirectionAction}
             comboCount={comboCount}
+            controlStyle={settings.touchControlStyle || 'FLOATING'}
+            onToggleControlStyle={handleToggleControlStyle}
+            hapticsEnabled={settings.hapticsEnabled !== false}
+            onToggleHaptics={handleToggleHaptics}
+            twinStickAimEnabled={settings.twinStickAimEnabled !== false}
+            onToggleTwinStick={handleToggleTwinStick}
+            isLowGraphicsMode={Boolean(settings.lowGraphicsMode || settings.graphicsQuality === 'LOW')}
+            onTogglePerformanceMode={handleTogglePerformanceMode}
+            language={settings.language}
           />
         )}
       </div>

@@ -106,6 +106,16 @@ export interface TranslationDictionary {
   languageSelect: string;
   languageSelectDesc: string;
   returnToPause: string;
+  touchControlMode: string;
+  floatingJoystick: string;
+  fixedDpad: string;
+  haptics: string;
+  hapticsDesc: string;
+  twinStickAim: string;
+  twinStickAimDesc: string;
+  performanceMode: string;
+  turboSmooth: string;
+  ultraHd: string;
 
   // Game Over & Results
   gameOver: string;
@@ -334,6 +344,16 @@ export const translations: Record<Language, TranslationDictionary> = {
     languageSelect: 'GAME LANGUAGE',
     languageSelectDesc: 'Switch interface between English & မြန်မာဘာသာ',
     returnToPause: 'RETURN TO PAUSE MENU',
+    touchControlMode: 'TOUCH CONTROLS (DUAL SCHEME)',
+    floatingJoystick: '🕹️ FLOATING JOYSTICK',
+    fixedDpad: '🎮 FIXED D-PAD',
+    haptics: 'HAPTIC VIBRATION',
+    hapticsDesc: 'Tactile haptic vibration response for mobile touches',
+    twinStickAim: 'TWIN-STICK AIM ASSIST',
+    twinStickAimDesc: 'Drag attack button to direct laser aim in 360°',
+    performanceMode: 'PERFORMANCE MODE',
+    turboSmooth: '⚡ 60FPS SMOOTH',
+    ultraHd: '💎 ULTRA HD',
 
     // Game Over & Results
     gameOver: 'GAME OVER',
@@ -557,6 +577,16 @@ export const translations: Record<Language, TranslationDictionary> = {
     languageSelect: 'ဂိမ်း ဘာသာစကား',
     languageSelectDesc: 'မြန်မာဘာသာ နှင့် အင်္ဂလိပ်ဘာသာ အလွယ်တကူ ပြောင်းလဲနိုင်ပါသည်',
     returnToPause: 'ခေတ္တရပ်နား မီနူးသို့ ပြန်သွားမည်',
+    touchControlMode: 'မိုဘိုင်း ထိန်းချုပ်မှု စနစ် (နှစ်မျိုးသုံး)',
+    floatingJoystick: '🕹️ ရွေ့လျား ဂျွိုင်းစတစ် (Floating)',
+    fixedDpad: '🎮 ပုံသေ D-PAD (Classic Arcade)',
+    haptics: 'တုန်ခါမှု တုန့်ပြန်စနစ် (Haptics)',
+    hapticsDesc: 'ခလုတ်နှိပ်ခြင်းနှင့် လှုပ်ရှားမှုများအတွက် တုန်ခါမှုစနစ်',
+    twinStickAim: 'နှစ်ဖက်ချိန်ရွယ်စနစ် (Twin-Stick Aim)',
+    twinStickAimDesc: 'တိုက်ခိုက်ခလုတ်ကို ဆွဲရွှေ့၍ ၃၆၀ ဒီဂရီ လမ်းကြောင်းချိန်ရွယ်စနစ်',
+    performanceMode: 'စွမ်းဆောင်ရည် စနစ် (နှစ်မျိုးသုံး)',
+    turboSmooth: '⚡ 60FPS ချောမွေ့မုဒ်',
+    ultraHd: '💎 အဆင့်မြင့်ရုပ်ထွက်မုဒ်',
 
     // Game Over & Results
     gameOver: 'ကျရှုံးပါပြီ',

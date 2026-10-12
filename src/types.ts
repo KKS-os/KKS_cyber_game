@@ -1233,6 +1233,8 @@ export type Language = 'EN' | 'MY';
 
 export type GraphicsQuality = 'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA';
 
+export type TouchControlStyle = 'FLOATING' | 'FIXED_DPAD';
+
 export interface GameSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
@@ -1248,6 +1250,9 @@ export interface GameSettings {
   graphicsQuality?: GraphicsQuality;
   resolutionScale?: number;
   lowGraphicsMode?: boolean;
+  touchControlStyle?: TouchControlStyle;
+  hapticsEnabled?: boolean;
+  twinStickAimEnabled?: boolean;
 }
 
 export interface RadarTelemetryData {

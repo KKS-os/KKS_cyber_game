@@ -1124,6 +1124,19 @@ export class GameEngine {
     }
   }
 
+  /** Set direct aim angle from mobile twin-stick touch controls */
+  public setAimAngle(angle: number) {
+    this.player.angle = angle;
+    const dist = 240;
+    this.mouseAimWorldPos = {
+      x: this.player.position.x + Math.cos(angle) * dist,
+      y: this.player.position.y + Math.sin(angle) * dist,
+    };
+    if (Math.abs(Math.cos(angle)) > 0.15) {
+      this.player.facingDirection = Math.cos(angle) >= 0 ? 'RIGHT' : 'LEFT';
+    }
+  }
+
   /** Hypersonic Dash Trigger with Rhythm Beat Synchronization */
   public handleDash() {
     if (this.player.dashTimer > 0) return;

@@ -67,6 +67,8 @@ function generateSkylineLayer(
     { text: 'KKS', color: '#FFD700', vertical: true },
     { text: 'Cyber Game', color: '#FFB900', vertical: false },
     { text: 'Burma Batik', color: '#FFE600', vertical: false },
+    { text: 'ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်', color: '#FFD700', vertical: false },
+    { text: 'ဘားမားပါတိတ်ဝတ်ဖူးလား?', color: '#FFE600', vertical: false },
     { text: 'KKS CORP', color: '#FFD700', vertical: false },
     { text: 'BURMA BATIK', color: '#FFB900', vertical: true },
     { text: 'CYBER GAME', color: '#FFE600', vertical: true },
@@ -724,16 +726,63 @@ function renderHoloBillboard(ctx: CanvasRenderingContext2D, prop: CyberEnvironme
     ctx.stroke();
   }
 
-  // Billboard Text
-  ctx.fillStyle = prop.glowColor;
-  ctx.font = '900 13px "Orbitron", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(data.text, 0, frameY + h * 0.5 + (data.subText ? -2 : 4));
+  // Billboard Text & Burmese Animated Spotlight Marquee
+  const isBurmaSign = data.text.includes('Burma Batik') || data.text.includes('ဘားမားပါတိတ်');
+  if (isBurmaSign) {
+    const isPhrase2 = Math.round(Math.abs(prop.position.x)) % 2 === 1;
+    const burmesePhrase = data.text.includes('ဘားမားပါတိတ်')
+      ? data.text
+      : isPhrase2
+      ? 'ဘားမားပါတိတ်ဝတ်ဖူးလား?'
+      : 'ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်';
 
-  if (data.subText) {
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 8px "Orbitron", monospace';
-    ctx.fillText(data.subText, 0, frameY + h * 0.5 + 12);
+    // Sweeping Spotlight Beam ("ဆလိုက်မီးအလင်း")
+    const spotX = Math.sin(time * 2.5 + prop.animPhase) * (w * 0.38);
+    const spotGrad = ctx.createRadialGradient(spotX, frameY + h * 0.5, 3, spotX, frameY + h * 0.5, 48);
+    spotGrad.addColorStop(0, 'rgba(255, 245, 170, 0.65)');
+    spotGrad.addColorStop(0.4, 'rgba(255, 215, 0, 0.3)');
+    spotGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.fillStyle = spotGrad;
+    ctx.fillRect(-w * 0.5, frameY, w, h);
+
+    // Header Title
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 8.5px "Orbitron", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Burma Batik', 0, frameY + 12);
+
+    // Left-to-Right Scrolling Marquee Ticker ("ဘယ်ကနေညာဘက် လှုပ်ရှားနေဟန်")
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-w * 0.5 + 3, frameY + 14, w - 6, h - 18);
+    ctx.clip();
+
+    ctx.font = 'bold 9.5px "Pyidaungsu", "Padauk", "Myanmar Text", sans-serif';
+    const textWidth = ctx.measureText(burmesePhrase).width + 24;
+    const scrollSpan = w + textWidth;
+    // Moving from LEFT to RIGHT: x coordinate increases as time advances!
+    const scrollX = -w * 0.5 + ((time * 32 + prop.animPhase * 40) % scrollSpan) - textWidth;
+
+    for (let offset = -textWidth; offset <= w + textWidth; offset += textWidth) {
+      const tx = scrollX + offset;
+      if (tx > -w * 0.5 - textWidth && tx < w * 0.5 + 10) {
+        ctx.fillStyle = Math.abs(tx - spotX) < 25 ? '#FFFFFF' : '#FFD700';
+        ctx.textAlign = 'left';
+        ctx.fillText(burmesePhrase, tx, frameY + h * 0.5 + 8);
+      }
+    }
+    ctx.restore();
+  } else {
+    ctx.fillStyle = prop.glowColor;
+    ctx.font = '900 13px "Orbitron", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(data.text, 0, frameY + h * 0.5 + (data.subText ? -2 : 4));
+
+    if (data.subText) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 8px "Orbitron", monospace';
+      ctx.fillText(data.subText, 0, frameY + h * 0.5 + 12);
+    }
   }
 
   ctx.restore();

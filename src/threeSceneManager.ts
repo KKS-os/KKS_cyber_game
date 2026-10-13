@@ -296,9 +296,19 @@ export class ThreeSceneManager {
   private burmaBatikCtxH!: CanvasRenderingContext2D;
   private burmaBatikTexH!: THREE.CanvasTexture;
 
+  private burmaBatikCanvasH2!: HTMLCanvasElement;
+  private burmaBatikCtxH2!: CanvasRenderingContext2D;
+  private burmaBatikTexH2!: THREE.CanvasTexture;
+
   private burmaBatikCanvasV!: HTMLCanvasElement;
   private burmaBatikCtxV!: CanvasRenderingContext2D;
   private burmaBatikTexV!: THREE.CanvasTexture;
+
+  private burmaBatikCanvasV2!: HTMLCanvasElement;
+  private burmaBatikCtxV2!: CanvasRenderingContext2D;
+  private burmaBatikTexV2!: THREE.CanvasTexture;
+
+  private burmaBillboardCount: number = 0;
 
   // 3D Hazard Pit Warning Border & Hologram Textures
   private hazardCautionTex!: THREE.CanvasTexture;
@@ -310,7 +320,9 @@ export class ThreeSceneManager {
     cyberGameH: THREE.MeshStandardMaterial;
     cyberGameV: THREE.MeshStandardMaterial;
     burmaBatikH: THREE.MeshStandardMaterial;
+    burmaBatikH2: THREE.MeshStandardMaterial;
     burmaBatikV: THREE.MeshStandardMaterial;
+    burmaBatikV2: THREE.MeshStandardMaterial;
     goldNeonTrim: THREE.Material;
     goldNeonTrimBright: THREE.Material;
     amberNeonTrim: THREE.Material;
@@ -1878,6 +1890,14 @@ export class ThreeSceneManager {
     this.burmaBatikTexH.minFilter = THREE.LinearFilter;
     this.burmaBatikTexH.magFilter = THREE.LinearFilter;
 
+    // Second Burma Batik Horizontal Billboard Variant (For separate location phrase)
+    const burmaH2 = createOffscreen(512, 200);
+    this.burmaBatikCanvasH2 = burmaH2.canvas;
+    this.burmaBatikCtxH2 = burmaH2.ctx;
+    this.burmaBatikTexH2 = new THREE.CanvasTexture(this.burmaBatikCanvasH2);
+    this.burmaBatikTexH2.minFilter = THREE.LinearFilter;
+    this.burmaBatikTexH2.magFilter = THREE.LinearFilter;
+
     // Vertical Billboard Strips (140 x 512)
     const kksV = createOffscreen(140, 512);
     this.kksCanvasV = kksV.canvas;
@@ -1899,6 +1919,14 @@ export class ThreeSceneManager {
     this.burmaBatikTexV = new THREE.CanvasTexture(this.burmaBatikCanvasV);
     this.burmaBatikTexV.minFilter = THREE.LinearFilter;
     this.burmaBatikTexV.magFilter = THREE.LinearFilter;
+
+    // Second Burma Batik Vertical Billboard Variant
+    const burmaV2 = createOffscreen(140, 512);
+    this.burmaBatikCanvasV2 = burmaV2.canvas;
+    this.burmaBatikCtxV2 = burmaV2.ctx;
+    this.burmaBatikTexV2 = new THREE.CanvasTexture(this.burmaBatikCanvasV2);
+    this.burmaBatikTexV2.minFilter = THREE.LinearFilter;
+    this.burmaBatikTexV2.magFilter = THREE.LinearFilter;
 
     // 2. High-Emissive Golden Materials configured for UnrealBloomPass Post-Processing
     this.goldenMaterials = {
@@ -1938,7 +1966,15 @@ export class ThreeSceneManager {
         map: this.burmaBatikTexH,
         emissiveMap: this.burmaBatikTexH,
         emissive: new THREE.Color(0xffd700),
-        emissiveIntensity: 0.4,
+        emissiveIntensity: 0.45,
+        roughness: 0.2,
+        metalness: 0.8,
+      }),
+      burmaBatikH2: new THREE.MeshStandardMaterial({
+        map: this.burmaBatikTexH2,
+        emissiveMap: this.burmaBatikTexH2,
+        emissive: new THREE.Color(0xffd700),
+        emissiveIntensity: 0.45,
         roughness: 0.2,
         metalness: 0.8,
       }),
@@ -1946,7 +1982,15 @@ export class ThreeSceneManager {
         map: this.burmaBatikTexV,
         emissiveMap: this.burmaBatikTexV,
         emissive: new THREE.Color(0xffd700),
-        emissiveIntensity: 0.4,
+        emissiveIntensity: 0.45,
+        roughness: 0.2,
+        metalness: 0.8,
+      }),
+      burmaBatikV2: new THREE.MeshStandardMaterial({
+        map: this.burmaBatikTexV2,
+        emissiveMap: this.burmaBatikTexV2,
+        emissive: new THREE.Color(0xffd700),
+        emissiveIntensity: 0.45,
         roughness: 0.2,
         metalness: 0.8,
       }),
@@ -2013,10 +2057,17 @@ export class ThreeSceneManager {
     this.cyberGameTexH.needsUpdate = true;
     this.cyberGameTexV.needsUpdate = true;
 
-    this.drawBurmaBatikCanvas(this.burmaBatikCtxH, 512, 200, time, false);
-    this.drawBurmaBatikCanvas(this.burmaBatikCtxV, 140, 512, time, true);
+    // Phrase 1: "ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်" (Moving Left to Right Marquee + Sweeping Spotlight)
+    this.drawBurmaBatikCanvas(this.burmaBatikCtxH, 512, 200, time, false, 1);
+    this.drawBurmaBatikCanvas(this.burmaBatikCtxV, 140, 512, time, true, 1);
     this.burmaBatikTexH.needsUpdate = true;
     this.burmaBatikTexV.needsUpdate = true;
+
+    // Phrase 2: "ဘားမားပါတိတ်ဝတ်ဖူးလား?" (Moving Left to Right Marquee + Sweeping Spotlight)
+    this.drawBurmaBatikCanvas(this.burmaBatikCtxH2, 512, 200, time, false, 2);
+    this.drawBurmaBatikCanvas(this.burmaBatikCtxV2, 140, 512, time, true, 2);
+    this.burmaBatikTexH2.needsUpdate = true;
+    this.burmaBatikTexV2.needsUpdate = true;
   }
 
   // 1. BRAND SIGNAGE: "KKS" (Luxury Cybernetic S-Tier Monogram & Quantum Corp)
@@ -2165,76 +2216,238 @@ export class ThreeSceneManager {
     ctx.restore();
   }
 
-  // 3. BRAND SIGNAGE: "Burma Batik" (Royal Burmese Heritage & Intricate Geometric Batik Filigree)
+  // 3. BRAND SIGNAGE: "Burma Batik" (Royal Burmese Heritage, Sweeping Spotlight Beam, & Left-to-Right Animated Marquee)
   private drawBurmaBatikCanvas(
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number,
-    _time: number,
-    isVertical: boolean
+    time: number,
+    isVertical: boolean,
+    phraseVariant: 1 | 2 = 1
   ) {
     ctx.save();
-    // Solid Pitch Black Background
-    ctx.fillStyle = '#000000';
+    // Solid Pitch Black Background with deep royal cyber undertone
+    ctx.fillStyle = '#020108';
     ctx.fillRect(0, 0, w, h);
 
-    // Outer Gold Border
+    // Burmese text phrases requested by user:
+    // Phrase 1: "ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်" (Sponsored by Burma Batik)
+    // Phrase 2: "ဘားမားပါတိတ်ဝတ်ဖူးလား?" (Have you ever worn Burma Batik?)
+    const burmesePhrase = phraseVariant === 1
+      ? 'ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်'
+      : 'ဘားမားပါတိတ်ဝတ်ဖူးလား?';
+    const burmeseEnglishTag = phraseVariant === 1
+      ? '✦ OFFICIAL SPONSOR ✦'
+      : '✦ ROYAL ATTIRE ✦';
+
+    // Outer Gold Neon Border
     const pad = isVertical ? 6 : 8;
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 3;
     ctx.strokeRect(pad, pad, w - pad * 2, h - pad * 2);
 
+    // Inner Filigree Accent Border
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pad + 4, pad + 4, w - (pad + 4) * 2, h - (pad + 4) * 2);
+
+    // --- SPOTLIGHT BEAM ILLUMINATION (ဆလိုက်မီးအလင်း) ---
+    // Periodic sweeping spotlight: Occasional searchlight sweep across the billboard
+    // 12-second overall broadcast cycle: 8s active sweeping illumination, 4s resting glow
+    const cycleTime = 12;
+    const cyclePos = (time % cycleTime) / cycleTime;
+    const isSpotlightActive = cyclePos < 0.72; // Active for first 72% of cycle
+    const spotlightIntensity = isSpotlightActive
+      ? Math.sin((cyclePos / 0.72) * Math.PI) // Smooth bell curve ease-in / ease-out
+      : 0.15; // Low resting ambient glow
+
+    // Sweeping beam position across the width
+    const sweepSpeed = phraseVariant === 1 ? 1.8 : 2.1;
+    const spotlightX = (Math.sin(time * sweepSpeed) * 0.42 + 0.5) * w;
+    const spotlightY = isVertical ? (Math.cos(time * 1.5) * 0.35 + 0.5) * h : h * 0.65;
+    const spotlightRadius = isVertical ? 120 : 160;
+
+    // Render Sweeping Spotlight Radial Cone Beam
+    if (spotlightIntensity > 0.05) {
+      ctx.save();
+      const spotGrad = ctx.createRadialGradient(
+        spotlightX,
+        spotlightY,
+        8,
+        spotlightX,
+        spotlightY,
+        spotlightRadius
+      );
+      spotGrad.addColorStop(0, `rgba(255, 245, 170, ${0.92 * spotlightIntensity})`);
+      spotGrad.addColorStop(0.3, `rgba(255, 215, 0, ${0.65 * spotlightIntensity})`);
+      spotGrad.addColorStop(0.7, `rgba(255, 170, 0, ${0.22 * spotlightIntensity})`);
+      spotGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+      ctx.fillStyle = spotGrad;
+      ctx.fillRect(pad, pad, w - pad * 2, h - pad * 2);
+
+      // Angled searchlight beam line reflection
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 * spotlightIntensity})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(spotlightX - 40, 0);
+      ctx.lineTo(spotlightX + 40, h);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (!isVertical) {
       const cx = w / 2;
 
-      // Header Tagline
-      ctx.font = 'bold 12px "Orbitron", serif';
+      // Header Tagline with Royal Crest
+      ctx.font = 'bold 11px "Orbitron", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFD700';
-      ctx.fillText('★ ROYAL HERITAGE 2099 ★', cx, 36);
+      ctx.fillText(`★ BURMA BATIK // ${burmeseEnglishTag} ★`, cx, 32);
 
-      // Main Text: "Burma Batik"
-      ctx.font = 'bold 52px "Cinzel", "Georgia", serif';
+      // Main Golden Brand Title: "Burma Batik"
+      ctx.font = 'bold 44px "Cinzel", "Georgia", serif';
       ctx.fillStyle = '#FFD700';
-      ctx.fillText('Burma Batik', cx, 105);
+      ctx.fillText('Burma Batik', cx, 82);
 
       ctx.fillStyle = '#FFF8DC';
-      ctx.fillText('Burma Batik', cx, 105);
+      ctx.fillText('Burma Batik', cx, 82);
 
-      // Status Footer
-      ctx.font = 'bold 11px "Orbitron", monospace';
-      ctx.fillStyle = '#FFD700';
-      ctx.fillText('BURMESE SILK & NEON WEAVE', cx, h - 22);
+      // --- MOVING SUBTITLE MARQUEE / TICKER FROM LEFT TO RIGHT (ဘယ်ကနေညာဘက် လှုပ်ရှားနေဟန်) ---
+      // Dedicated Cyber Glass Ticker Banner at lower section
+      const tickerBoxY = 118;
+      const tickerBoxH = 58;
+      const tickerPad = 12;
+
+      ctx.fillStyle = 'rgba(6, 4, 18, 0.88)';
+      ctx.fillRect(tickerPad, tickerBoxY, w - tickerPad * 2, tickerBoxH);
+
+      ctx.strokeStyle = isSpotlightActive ? '#FFD700' : 'rgba(255, 215, 0, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(tickerPad, tickerBoxY, w - tickerPad * 2, tickerBoxH);
+
+      // Small Ticker Sub-Badge Header
+      ctx.font = 'bold 9px "Orbitron", monospace';
+      ctx.fillStyle = isSpotlightActive ? '#00FFD1' : '#FFD700';
+      ctx.textAlign = 'left';
+      ctx.fillText(`[ 💡 SPOTLIGHT BROADCAST: #0${phraseVariant} ]`, tickerPad + 8, tickerBoxY + 14);
+
+      // Calculate Left-to-Right Scrolling Position:
+      // Speed in pixels per second: Text glides from Left towards Right!
+      const scrollSpeed = 68;
+      ctx.font = 'bold 22px "Pyidaungsu", "Padauk", "Myanmar Text", "Noto Sans Myanmar", sans-serif';
+      const textMetrics = ctx.measureText(burmesePhrase);
+      const phraseWidth = textMetrics.width + 120;
+      const scrollDomain = w + phraseWidth;
+      // Moving from LEFT to RIGHT: x coordinate increases as time advances!
+      const baseScrollX = ((time * scrollSpeed) % scrollDomain) - phraseWidth + tickerPad;
+
+      ctx.save();
+      // Clip to ticker box so it doesn't spill over billboard frame
+      ctx.beginPath();
+      ctx.rect(tickerPad + 2, tickerBoxY + 16, w - tickerPad * 2 - 4, tickerBoxH - 18);
+      ctx.clip();
+
+      // Draw multiple instances so when one leaves on the right, the next enters from the left
+      for (let offset = -phraseWidth; offset <= w + phraseWidth; offset += phraseWidth) {
+        const drawX = baseScrollX + offset;
+        if (drawX > -phraseWidth && drawX < w + 50) {
+          const distToLight = Math.abs(drawX + phraseWidth * 0.5 - spotlightX);
+          const isUnderLight = distToLight < 90 && isSpotlightActive;
+
+          ctx.font = 'bold 22px "Pyidaungsu", "Padauk", "Myanmar Text", "Noto Sans Myanmar", sans-serif';
+          ctx.textAlign = 'left';
+
+          if (isUnderLight) {
+            ctx.shadowColor = '#FFE600';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(burmesePhrase, drawX, tickerBoxY + 44);
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText(burmesePhrase, drawX, tickerBoxY + 44);
+          }
+
+          // Royal Diamond separator icon
+          ctx.fillStyle = '#00FFD1';
+          ctx.font = 'bold 16px "Orbitron", sans-serif';
+          ctx.fillText('◆', drawX + textMetrics.width + 16, tickerBoxY + 42);
+        }
+      }
+      ctx.restore();
+
+      // Bottom Status Indicator
+      ctx.font = 'bold 9px "Orbitron", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.75)';
+      ctx.fillText('BURMESE HERITAGE WEAVE • 2099', cx, h - 12);
     } else {
-      // Vertical Strip: "BURMA" & "BATIK"
+      // --- VERTICAL STRIP BILLBOARD (140 x 512) ---
       const cx = w / 2;
       ctx.font = 'bold 10px "Cinzel", serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFD700';
-      ctx.fillText('ROYAL', cx, 28);
+      ctx.fillText('ROYAL', cx, 26);
 
       const burmaLetters = ['B', 'U', 'R', 'M', 'A'];
       const batikLetters = ['B', 'A', 'T', 'I', 'K'];
 
-      // Draw BURMA (Top half)
+      // Draw BURMA
       for (let i = 0; i < burmaLetters.length; i++) {
-        const y = 70 + i * 36;
-        ctx.font = 'bold 30px "Cinzel", "Georgia", serif';
+        const y = 62 + i * 32;
+        ctx.font = 'bold 28px "Cinzel", "Georgia", serif';
         ctx.fillStyle = '#FFD700';
         ctx.fillText(burmaLetters[i], cx, y);
       }
 
-      // Draw BATIK (Bottom half)
+      // Center Spotlight Separator Badge
+      ctx.strokeStyle = '#00FFD1';
+      ctx.strokeRect(10, 222, w - 20, 32);
+      ctx.fillStyle = 'rgba(0, 255, 209, 0.15)';
+      ctx.fillRect(10, 222, w - 20, 32);
+
+      ctx.font = 'bold 8.5px "Orbitron", monospace';
+      ctx.fillStyle = '#00FFD1';
+      ctx.fillText('SPONSOR', cx, 242);
+
+      // Draw BATIK
       for (let i = 0; i < batikLetters.length; i++) {
-        const y = 280 + i * 36;
-        ctx.font = 'bold 30px "Cinzel", "Georgia", serif';
+        const y = 285 + i * 32;
+        ctx.font = 'bold 28px "Cinzel", "Georgia", serif';
         ctx.fillStyle = '#FFD700';
         ctx.fillText(batikLetters[i], cx, y);
       }
 
-      ctx.font = 'bold 9px "Orbitron", monospace';
+      // Vertical Ticker Display at Bottom Box (Scrolls from left to right)
+      const vBoxY = 445;
+      const vBoxH = 54;
+      ctx.fillStyle = 'rgba(6, 4, 18, 0.9)';
+      ctx.fillRect(8, vBoxY, w - 16, vBoxH);
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(8, vBoxY, w - 16, vBoxH);
+
+      ctx.font = 'bold 7.5px "Orbitron", monospace';
       ctx.fillStyle = '#FFD700';
-      ctx.fillText('2099', cx, h - 18);
+      ctx.fillText('💡 SPOTLIGHT', cx, vBoxY + 12);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(9, vBoxY + 15, w - 18, vBoxH - 17);
+      ctx.clip();
+
+      ctx.font = 'bold 13px "Pyidaungsu", "Padauk", "Myanmar Text", sans-serif';
+      const textMetrics = ctx.measureText(burmesePhrase);
+      const pWidth = textMetrics.width + 40;
+      const vScrollX = ((time * 40) % (w + pWidth)) - pWidth + 8;
+
+      for (let offset = -pWidth; offset <= w + pWidth; offset += pWidth) {
+        ctx.fillStyle = isSpotlightActive ? '#FFFFFF' : '#FFD700';
+        ctx.textAlign = 'left';
+        ctx.fillText(burmesePhrase, vScrollX + offset, vBoxY + 36);
+      }
+      ctx.restore();
     }
 
     ctx.restore();
@@ -2250,14 +2463,20 @@ export class ThreeSceneManager {
     const group = new THREE.Group();
     const isVertical = orientation === 'VERTICAL_WALL_STRIP';
 
-    // 1. Select the dynamic high-emissive screen material
+    // 1. Select the dynamic high-emissive screen material (Alternating Burma Batik variants across locations)
     let screenMat: THREE.MeshStandardMaterial;
     if (brand === 'KKS') {
       screenMat = isVertical ? this.goldenMaterials.kksV : this.goldenMaterials.kksH;
     } else if (brand === 'Cyber Game') {
       screenMat = isVertical ? this.goldenMaterials.cyberGameV : this.goldenMaterials.cyberGameH;
     } else {
-      screenMat = isVertical ? this.goldenMaterials.burmaBatikV : this.goldenMaterials.burmaBatikH;
+      // Alternates between Variant 1 ("ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်") and Variant 2 ("ဘားမားပါတိတ်ဝတ်ဖူးလား?")
+      const isVariant2 = (this.burmaBillboardCount++) % 2 === 1;
+      if (isVertical) {
+        screenMat = isVariant2 ? this.goldenMaterials.burmaBatikV2 : this.goldenMaterials.burmaBatikV;
+      } else {
+        screenMat = isVariant2 ? this.goldenMaterials.burmaBatikH2 : this.goldenMaterials.burmaBatikH;
+      }
     }
 
     const screenW = width;
@@ -2329,6 +2548,61 @@ export class ThreeSceneManager {
     const rightBeacon = new THREE.Mesh(beaconGeo, this.goldenMaterials.beaconRed);
     rightBeacon.position.set(screenW / 2, screenH / 2 + 4, 0);
     group.add(rightBeacon);
+
+    // 9. DUAL PHYSICAL 3D SPOTLIGHT FIXTURES FOR BURMA BATIK (ဆလိုက်မီးအလင်း)
+    if (brand === 'Burma Batik') {
+      const spotArmGeo = new THREE.CylinderGeometry(1.5, 1.5, 16, 8);
+      const spotLampGeo = new THREE.CylinderGeometry(4.5, 3.2, 8, 12);
+      const spotMat = this.goldenMaterials.scaffoldingSteel;
+      const lensMat = this.goldenMaterials.goldNeonTrimBright;
+
+      // Volumetric Spotlight Beam Mesh (Semi-transparent additive glowing cone)
+      const beamGeo = new THREE.ConeGeometry(screenW * 0.36, screenH * 0.88, 16, 1, true);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        transparent: true,
+        opacity: 0.16,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      // Left Spotlight Housing & Beam
+      const leftSpot = new THREE.Group();
+      leftSpot.position.set(-screenW * 0.36, -screenH / 2 - 2, 7);
+      const leftArm = new THREE.Mesh(spotArmGeo, spotMat);
+      leftArm.rotation.x = 0.55;
+      leftSpot.add(leftArm);
+      const leftLamp = new THREE.Mesh(spotLampGeo, lensMat);
+      leftLamp.position.set(0, 7.5, 3.8);
+      leftLamp.rotation.x = -0.75;
+      leftSpot.add(leftLamp);
+
+      const leftBeam = new THREE.Mesh(beamGeo, beamMat);
+      leftBeam.position.set(0, 7.5 + screenH * 0.44, 3.8);
+      leftBeam.rotation.x = Math.PI - 0.28;
+      leftBeam.name = 'spotlightBeamLeft';
+      leftSpot.add(leftBeam);
+      group.add(leftSpot);
+
+      // Right Spotlight Housing & Beam
+      const rightSpot = new THREE.Group();
+      rightSpot.position.set(screenW * 0.36, -screenH / 2 - 2, 7);
+      const rightArm = new THREE.Mesh(spotArmGeo, spotMat);
+      rightArm.rotation.x = 0.55;
+      rightSpot.add(rightArm);
+      const rightLamp = new THREE.Mesh(spotLampGeo, lensMat);
+      rightLamp.position.set(0, 7.5, 3.8);
+      rightLamp.rotation.x = -0.75;
+      rightSpot.add(rightLamp);
+
+      const rightBeam = new THREE.Mesh(beamGeo, beamMat);
+      rightBeam.position.set(0, 7.5 + screenH * 0.44, 3.8);
+      rightBeam.rotation.x = Math.PI - 0.28;
+      rightBeam.name = 'spotlightBeamRight';
+      rightSpot.add(rightBeam);
+      group.add(rightSpot);
+    }
 
     return group;
   }
@@ -4264,13 +4538,11 @@ export class ThreeSceneManager {
   ) {
     this.animTick += 0.032;
 
-    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures (Skipped on low mode to prevent GPU bus stalls)
+    // 0. Update Dynamic HTML5 Canvas Golden Neon Billboard Textures with smooth animated marquee & spotlights
     this.goldenCanvasFrameCount++;
-    if (!this.isLowGraphicsMode) {
-      const canvasThrottle = this.isMobileDevice ? 120 : 12;
-      if (this.goldenCanvasFrameCount % canvasThrottle === 0) {
-        this.renderGoldenCanvasTextures(this.animTick);
-      }
+    const canvasThrottle = this.isLowGraphicsMode ? 6 : this.isMobileDevice ? 3 : 2;
+    if (this.goldenCanvasFrameCount % canvasThrottle === 0) {
+      this.renderGoldenCanvasTextures(this.animTick);
     }
 
     // 1. Sync 3D Camera with 2D Player, Dynamic Neon Flickering & Enemy Proximity Flashlight Glitch
@@ -8195,9 +8467,138 @@ export class ThreeSceneManager {
     // Render Multiplayer Remote Player Hologram Badges & Tactical Pings
     this.renderRemotePlayerHUD(ctx, W, H, remotePlayers, tacticalPings);
 
+    // Occasional Burma Batik Spotlight Broadcast Ticker (ဆလိုက်မီးအလင်းနဲ့စာတန်းထိုး)
+    this.renderOccasionalBurmaBatikHoloBroadcast(ctx, W, H, this.animTick);
+
     ctx.restore();
 
     // Complete CSS scaling block
+    ctx.restore();
+  }
+
+  // --- OCCASIONAL BURMA BATIK SPOTLIGHT BROADCAST TICKER OVERLAY (ဆလိုက်မီးအလင်းနဲ့စာတန်းထိုး) ---
+  private renderOccasionalBurmaBatikHoloBroadcast(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    time: number
+  ) {
+    // 15-second broadcast cycle:
+    // Seconds 0 to 5.5: Banner active with sweeping spotlights and left-to-right scrolling marquee
+    // Seconds 5.5 to 15: Dimmed/resting (appears occasionally / intermittently: "ရံဖန်ရံခါမှ ပေါ်လာသလိုမျိုး")
+    const cyclePeriod = 15;
+    const cycleTime = time % cyclePeriod;
+    const broadcastDuration = 5.5;
+
+    if (cycleTime > broadcastDuration) return;
+
+    // Fade-in during first 0.6s, Fade-out during last 0.8s
+    let alpha = 1.0;
+    if (cycleTime < 0.6) {
+      alpha = cycleTime / 0.6;
+    } else if (cycleTime > broadcastDuration - 0.8) {
+      alpha = (broadcastDuration - cycleTime) / 0.8;
+    }
+
+    // Alternates between the two phrases on consecutive cycles:
+    // Cycle A: "ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်"
+    // Cycle B: "ဘားမားပါတိတ်ဝတ်ဖူးလား?"
+    const cycleIndex = Math.floor(time / cyclePeriod);
+    const isVariant2 = cycleIndex % 2 === 1;
+    const burmeseText = isVariant2
+      ? 'ဘားမားပါတိတ်ဝတ်ဖူးလား?'
+      : 'ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည်';
+    const subtitleHeader = isVariant2
+      ? '★ ROYAL ATTIRE BROADCAST ★'
+      : '★ OFFICIAL SPONSOR BROADCAST ★';
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+    const bannerW = Math.min(W - 24, 460);
+    const bannerH = 44;
+    const bannerX = (W - bannerW) / 2;
+    const bannerY = Math.max(50, Math.min(H * 0.12, 75));
+
+    // 1. High-Tech Hologram Glass Panel
+    ctx.fillStyle = 'rgba(6, 3, 16, 0.88)';
+    ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
+
+    // Glowing Golden Border with Chamfer Corners
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 10 * alpha;
+    ctx.strokeRect(bannerX, bannerY, bannerW, bannerH);
+    ctx.shadowBlur = 0;
+
+    // 2. Dynamic Sweeping Spotlight Beam ("ဆလိုက်မီးအလင်း")
+    const sweepSpeed = 2.4;
+    const spotX = bannerX + (Math.sin(time * sweepSpeed) * 0.44 + 0.5) * bannerW;
+    const spotGrad = ctx.createRadialGradient(spotX, bannerY + bannerH / 2, 5, spotX, bannerY + bannerH / 2, 110);
+    spotGrad.addColorStop(0, 'rgba(255, 245, 170, 0.45)');
+    spotGrad.addColorStop(0.35, 'rgba(255, 215, 0, 0.28)');
+    spotGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.fillStyle = spotGrad;
+    ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
+
+    // Spotlight searchlight beam angles
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(spotX - 30, bannerY);
+    ctx.lineTo(spotX + 30, bannerY + bannerH);
+    ctx.stroke();
+
+    // 3. Header Label & Status Tag
+    ctx.font = 'bold 8.5px "Orbitron", monospace';
+    ctx.fillStyle = '#00FFD1';
+    ctx.textAlign = 'left';
+    ctx.fillText(subtitleHeader, bannerX + 10, bannerY + 12);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#FFE600';
+    ctx.fillText('💡 BURMA BATIK', bannerX + bannerW - 10, bannerY + 12);
+
+    // 4. Moving Burmese Marquee Ticker from Left to Right ("ဘယ်ကနေညာဘက် လှုပ်ရှားနေဟန်")
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bannerX + 4, bannerY + 15, bannerW - 8, bannerH - 18);
+    ctx.clip();
+
+    ctx.font = 'bold 15px "Pyidaungsu", "Padauk", "Myanmar Text", "Noto Sans Myanmar", sans-serif';
+    const textMetrics = ctx.measureText(burmeseText);
+    const phraseSpan = textMetrics.width + 80;
+    const scrollDomain = bannerW + phraseSpan;
+    // Moving from LEFT to RIGHT: x coordinate increases as time advances!
+    const scrollSpeed = 58;
+    const baseScrollX = bannerX + ((time * scrollSpeed) % scrollDomain) - phraseSpan;
+
+    for (let offset = -phraseSpan; offset <= bannerW + phraseSpan; offset += phraseSpan) {
+      const drawX = baseScrollX + offset;
+      if (drawX > bannerX - phraseSpan && drawX < bannerX + bannerW + 20) {
+        const isNearSpotlight = Math.abs(drawX + phraseSpan * 0.5 - spotX) < 65;
+
+        ctx.textAlign = 'left';
+        if (isNearSpotlight) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.shadowColor = '#FFE600';
+          ctx.shadowBlur = 10;
+          ctx.fillText(burmeseText, drawX, bannerY + 34);
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText(burmeseText, drawX, bannerY + 34);
+        }
+
+        ctx.fillStyle = '#00FFD1';
+        ctx.font = 'bold 12px "Orbitron", monospace';
+        ctx.fillText('✦', drawX + textMetrics.width + 12, bannerY + 33);
+        ctx.font = 'bold 15px "Pyidaungsu", "Padauk", "Myanmar Text", "Noto Sans Myanmar", sans-serif';
+      }
+    }
+    ctx.restore();
+
     ctx.restore();
   }
 

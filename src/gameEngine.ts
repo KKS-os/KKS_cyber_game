@@ -119,9 +119,15 @@ export function createBillboardTexture(text: string): THREE.CanvasTexture {
     ctx.fillText(text, canvas.width / 2, 142);
 
     // E. Sub-Caption Status
-    ctx.font = 'bold 12px "Orbitron", monospace, sans-serif';
-    ctx.fillStyle = '#FFD700';
-    ctx.fillText('NEO-KYOTO // [ACTIVE]', canvas.width / 2, 215);
+    if (text === 'Burma Batik') {
+      ctx.font = 'bold 14px "Pyidaungsu", "Padauk", "Myanmar Text", sans-serif';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('💡 ဘားမားပါတိတ်မှ ကူညီပံ့ပိုးသည် ✦ ဘားမားပါတိတ်ဝတ်ဖူးလား?', canvas.width / 2, 215);
+    } else {
+      ctx.font = 'bold 12px "Orbitron", monospace, sans-serif';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('NEO-KYOTO // [ACTIVE]', canvas.width / 2, 215);
+    }
   }
 
   const texture = new THREE.CanvasTexture(canvas);

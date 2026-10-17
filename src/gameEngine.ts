@@ -5643,4 +5643,23 @@ export class GameEngine {
         })),
     };
   }
+
+  /**
+   * Retrieves real-time power grid status from ThreeSceneManager
+   */
+  public getPowerGridStatus(): {
+    phase: 'NORMAL' | 'FLICKER_DROP' | 'BLACKOUT' | 'SURGE_RESTORATION';
+    isBlackout: boolean;
+    timeRemaining: number;
+    currentZone: number;
+  } {
+    return (
+      this.threeManager?.getPowerGridStatus() || {
+        phase: 'NORMAL',
+        isBlackout: false,
+        timeRemaining: 18,
+        currentZone: 0,
+      }
+    );
+  }
 }

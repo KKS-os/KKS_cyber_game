@@ -71,6 +71,12 @@ interface HUDProps {
   onOpenMultiplayer?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  powerGridStatus?: {
+    phase: 'NORMAL' | 'FLICKER_DROP' | 'BLACKOUT' | 'SURGE_RESTORATION';
+    isBlackout: boolean;
+    timeRemaining: number;
+    currentZone: number;
+  };
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -105,6 +111,7 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenMultiplayer,
   isFullscreen = false,
   onToggleFullscreen,
+  powerGridStatus,
 }) => {
   const currentLang: Language = settings.language || 'MY';
   const t = getTranslation(currentLang);
@@ -227,6 +234,41 @@ export const HUD: React.FC<HUDProps> = ({
               </div>
               <span className={isPortalUnlocked ? 'text-[#00FF66] font-black' : 'text-cyan-200'}>
                 {isPortalUnlocked ? 'PORTAL' : 'CORE'}: {nearestDistMeters}M
+              </span>
+            </div>
+          )}
+
+          {/* Dynamic Alternating Power Grid Telemetry ("မီးလာလိုက် မီးပျက်သွားလိုက်") */}
+          {powerGridStatus && (
+            <div
+              className={`flex items-center gap-1 text-[7.5px] sm:text-[8.5px] font-black px-1.5 py-0.5 rounded border transition-all mt-1 ${
+                powerGridStatus.phase === 'BLACKOUT'
+                  ? 'border-red-500 bg-red-950/85 text-red-400 animate-pulse shadow-[0_0_12px_rgba(255,0,85,0.7)]'
+                  : powerGridStatus.phase === 'FLICKER_DROP'
+                  ? 'border-amber-400 bg-amber-950/75 text-amber-300 animate-bounce'
+                  : powerGridStatus.phase === 'SURGE_RESTORATION'
+                  ? 'border-cyan-300 bg-cyan-900/85 text-cyan-200 animate-pulse'
+                  : 'border-[#00FFD1]/35 bg-black/60 text-[#00FFD1]'
+              }`}
+            >
+              <Zap
+                size={9}
+                className={
+                  powerGridStatus.phase === 'BLACKOUT'
+                    ? 'text-red-400 animate-spin'
+                    : 'text-[#00FFD1]'
+                }
+              />
+              <span>
+                {powerGridStatus.phase === 'BLACKOUT'
+                  ? (settings.language === 'MY'
+                      ? `🚨 မီးပျက်ချိန် (${powerGridStatus.timeRemaining}s)`
+                      : `🚨 POWER OUTAGE (${powerGridStatus.timeRemaining}s)`)
+                  : powerGridStatus.phase === 'FLICKER_DROP'
+                  ? (settings.language === 'MY' ? '⚠️ မီးအားကျဆင်းမှု' : '⚠️ GRID FLUCTUATION')
+                  : powerGridStatus.phase === 'SURGE_RESTORATION'
+                  ? (settings.language === 'MY' ? '⚡ မီးပြန်လင်းပြီ' : '⚡ POWER SURGE RESTORED')
+                  : (settings.language === 'MY' ? '⚡ မီးလိုင်းပုံမှန်' : '⚡ GRID 100% ONLINE')}
               </span>
             </div>
           )}

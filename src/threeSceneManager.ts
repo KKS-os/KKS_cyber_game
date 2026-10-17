@@ -1768,11 +1768,11 @@ export class ThreeSceneManager {
     this.renderer.toneMappingExposure = 1.35; // Rich deep cyber-noir blacks with vivid neon glow highlights
 
     // 2. Initialize 3D Scene & Cyberpunk Atmospheric Laboratory Lighting
-    // Dark & Moody Cyberpunk Atmosphere (0x030610) with glowing soft neon accents
+    // Illuminated Cyber-Dawn Sky (0x0a1c36) with clear long-range visibility
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x030610);
-    // High-fidelity Volumetric Atmospheric Fog wrapping distant cyber structures into neon haze
-    this.scene.fog = new THREE.FogExp2(0x030610, 0.00075);
+    this.scene.background = new THREE.Color(0x0a1c36);
+    // Soft Atmospheric Fog for distant perspective without murky darkness
+    this.scene.fog = new THREE.FogExp2(0x0a1c36, 0.00022);
 
     const aspect = width / height;
     // PerspectiveCamera with dynamic adaptive Field of View for mobile landscapes
@@ -2610,13 +2610,13 @@ export class ThreeSceneManager {
   // --- 1. LIGHTING RIG (REAL-TIME 3D CYBER-ORGANIC ILLUMINATION & SHADOW RIG) ---
   private initLights() {
     // 1. High-Tech Ambient Light (Crisp daylight/dusk cyberpunk illumination with realistic visibility)
-    this.ambientLight = new THREE.AmbientLight(0x142848, 0.70);
+    this.ambientLight = new THREE.AmbientLight(0x284a75, 0.95);
     this.scene.add(this.ambientLight);
 
     // 2. High-Fidelity Directional Key Light (Electric Cyan & Sunlight Brilliance)
     const keyShadowRes = this.isMobileDevice ? 256 : 2048;
 
-    this.dirCyanKeyLight = new THREE.DirectionalLight(0x00ffd1, 0.90);
+    this.dirCyanKeyLight = new THREE.DirectionalLight(0x44eeff, 1.15);
     this.dirCyanKeyLight.position.set(450, 1400, 550);
     this.dirCyanKeyLight.castShadow = true;
     this.dirCyanKeyLight.shadow.mapSize.width = keyShadowRes;
@@ -2631,8 +2631,8 @@ export class ThreeSceneManager {
     this.dirCyanKeyLight.shadow.camera.bottom = -d;
     this.scene.add(this.dirCyanKeyLight);
 
-    // 3. Directional Rim Light (Vibrant Magenta 0xff00e5 for high-contrast cinematic edge lighting)
-    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00e5, 0.45);
+    // 3. Directional Rim Light (Vibrant Magenta 0xff00d4 for high-contrast cinematic edge lighting)
+    this.dirMagentaRimLight = new THREE.DirectionalLight(0xff00d4, 0.55);
     this.dirMagentaRimLight.position.set(-500, 1100, -600);
     this.scene.add(this.dirMagentaRimLight);
 
@@ -4788,129 +4788,123 @@ export class ThreeSceneManager {
       sound.setZone(newZone);
     }
 
-    // Zone Lighting Configuration
-    let targetAmbientIntensity = 0.70;
-    let targetAmbientColor = 0x142848;
-    let targetKeyIntensity = 0.90;
-    let targetKeyColor = 0x00ffd1;
-    let targetRimIntensity = 0.45;
-    let targetRimColor = 0xff00e5;
+    // =========================================================================
+    // DYNAMIC ENVIRONMENTAL ZONE & POWER GRID SYSTEM ("မီးလာလိုက် မီးပျက်သွားလိုက်")
+    // 1. Initial State: Game starts fully illuminated (18s) with crystal-clear visibility
+    // 2. Alternating Cycle: Full Illumination (18s) -> Flicker Warning (1.8s) ->
+    //    Tactical Blackout (5.5s) -> Power Surge Restoration (0.85s) -> Full Illumination
+    // =========================================================================
+    this.blackoutCycleTimer += dt;
 
-    if (this.currentZoneIndex === 0) {
-      // --- ZONE 0: HIGH-TECH METROPOLE (Bright, crystal-clear, realistic daytime visibility) ---
-      targetAmbientIntensity = 0.72;
-      targetAmbientColor = 0x142848;
-      targetKeyIntensity = 0.92;
-      targetKeyColor = 0x00ffd1;
-      targetRimIntensity = 0.45;
-      targetRimColor = 0xff00e5;
+    let targetAmbientIntensity = 0.95;
+    let targetAmbientColor = 0x243e62;
+    let targetKeyIntensity = 1.15;
+    let targetKeyColor = 0x44eeff;
+    let targetRimIntensity = 0.55;
+    let targetRimColor = 0xff00d4;
+
+    // Sector Theme Base Palettes
+    if (this.currentZoneIndex === 2) {
+      // Zone 2: Golden Chinatown & Ancient Matrix
+      targetAmbientColor = 0x3d2810;
+      targetKeyColor = 0xffaa22;
+      targetRimColor = 0xff1144;
+    } else if (this.currentZoneIndex === 3) {
+      // Zone 3: Toxic Bio-Storm
+      targetAmbientColor = 0x22103a;
+      targetKeyColor = 0x9900ff;
+      targetRimColor = 0x00ff66;
+    }
+
+    if (this.blackoutPhase === 'NORMAL') {
+      // PHASE 1: FULL POWER ILLUMINATION (မီးလင်းနေသော အခြေအနေ - Crystal clear daylight/cyberpunk view)
+      targetAmbientIntensity = 0.95;
+      targetKeyIntensity = 1.15;
+      targetRimIntensity = 0.55;
       this.ambientFlickerFactor = 1.0;
       this.isBlackoutActive = false;
-    } else if (this.currentZoneIndex === 1) {
-      // --- ZONE 1: POWER GRID HAZARD ("မီးလာလိုက် မီးပျက်သွားလိုက်" CYCLE) ---
-      this.blackoutCycleTimer += dt;
-      targetAmbientColor = 0x101a2c;
-      targetKeyColor = 0x00d4ff;
 
-      // Every 8.5 - 12.5 seconds, trigger a power failure event
-      if (this.blackoutPhase === 'NORMAL') {
-        targetAmbientIntensity = 0.52;
-        targetKeyIntensity = 0.72;
-        targetRimIntensity = 0.38;
-        this.ambientFlickerFactor = 1.0;
-        this.isBlackoutActive = false;
-
-        if (this.blackoutCycleTimer > 9.0 + (Math.sin(this.animTick * 0.1) + 1) * 1.8) {
-          this.blackoutPhase = 'FLICKER_DROP';
-          this.blackoutPhaseTimer = 0;
-          sound.playPowerFlicker();
-        }
-      } else if (this.blackoutPhase === 'FLICKER_DROP') {
-        this.blackoutPhaseTimer += dt;
-        // Rapid electrical voltage stutter (1.2s)
-        const stutterWave = Math.sin(this.animTick * 75) + Math.cos(this.animTick * 120);
-        this.ambientFlickerFactor = stutterWave < 0 ? 0.14 : 0.70;
-        targetAmbientIntensity = 0.28;
-        targetKeyIntensity = 0.32;
-        targetRimIntensity = 0.22;
-
-        if (this.blackoutPhaseTimer >= 1.2) {
-          this.blackoutPhase = 'BLACKOUT';
-          this.blackoutPhaseTimer = 0;
-          this.isBlackoutActive = true;
-        }
-      } else if (this.blackoutPhase === 'BLACKOUT') {
-        this.blackoutPhaseTimer += dt;
-        // Complete tactical sector blackout (3.2s duration)
-        // Red emergency alert pulses, hero flashlight beam cuts through dark
-        this.ambientFlickerFactor = 0.18;
-        targetAmbientIntensity = 0.12;
-        targetAmbientColor = 0x240608;
-        targetKeyIntensity = 0.10;
-        targetKeyColor = 0xff1133;
-        targetRimIntensity = 0.12;
-
-        if (this.blackoutPhaseTimer >= 3.2) {
-          this.blackoutPhase = 'SURGE_RESTORATION';
-          this.blackoutPhaseTimer = 0;
-          this.isBlackoutActive = false;
-          sound.playPowerSurgeRestored();
-        }
-      } else if (this.blackoutPhase === 'SURGE_RESTORATION') {
-        this.blackoutPhaseTimer += dt;
-        // Blinding power surge flare (0.45s) then back to normal
-        const surgeRatio = Math.max(0, 1 - this.blackoutPhaseTimer / 0.45);
-        targetAmbientIntensity = 0.52 + surgeRatio * 0.78; // Jumps to 1.30!
-        targetAmbientColor = 0x33ffff;
-        targetKeyIntensity = 0.72 + surgeRatio * 0.95;
-        targetKeyColor = 0xffffff;
-        targetRimIntensity = 0.48;
-        this.ambientFlickerFactor = 1.0;
-
-        if (this.blackoutPhaseTimer >= 0.5) {
-          this.blackoutPhase = 'NORMAL';
-          this.blackoutCycleTimer = 0;
-        }
+      // Generous 18-second period of full bright illumination
+      if (this.blackoutCycleTimer >= 18.0) {
+        this.blackoutPhase = 'FLICKER_DROP';
+        this.blackoutPhaseTimer = 0;
+        sound.playPowerFlicker();
       }
-    } else if (this.currentZoneIndex === 2) {
-      // --- ZONE 2: GOLDEN CHINATOWN & ANCIENT MATRIX (Warm golden amber & imperial crimson) ---
-      targetAmbientIntensity = 0.65;
-      targetAmbientColor = 0x2e1805; // Warm Golden Amber
-      targetKeyIntensity = 0.95;
-      targetKeyColor = 0xffaa22; // Radiant Gold Sunlight
-      targetRimIntensity = 0.55;
-      targetRimColor = 0xff1144; // Imperial Crimson
-      this.ambientFlickerFactor = 0.95 + Math.sin(this.animTick * 3) * 0.05;
-      this.isBlackoutActive = false;
-    } else if (this.currentZoneIndex === 3) {
-      // --- ZONE 3: TOXIC BIO-STORM & HIGH-VOLTAGE THUNDER LIGHTNING ---
-      this.thunderTimer += dt;
-      targetAmbientColor = 0x16062a; // Deep Violet
-      targetKeyColor = 0x9900ff;
-      targetRimColor = 0x00ff66; // Toxic Emerald
+    } else if (this.blackoutPhase === 'FLICKER_DROP') {
+      // PHASE 2: VOLTAGE INSTABILITY WARNING (မီးအားကျ / လှုပ်ခါသတိပေး)
+      this.blackoutPhaseTimer += dt;
+      const stutterWave = Math.sin(this.animTick * 65) + Math.cos(this.animTick * 110);
+      this.ambientFlickerFactor = stutterWave < 0 ? 0.22 : 0.85;
+      targetAmbientIntensity = 0.45;
+      targetKeyIntensity = 0.55;
+      targetRimIntensity = 0.30;
 
-      // Thunder & Lightning Strike Event (every 7 to 10 seconds)
-      if (this.thunderTimer >= 7.5 + (Math.sin(this.animTick * 0.2) + 1) * 1.5) {
+      if (this.blackoutPhaseTimer >= 1.8) {
+        this.blackoutPhase = 'BLACKOUT';
+        this.blackoutPhaseTimer = 0;
+        this.isBlackoutActive = true;
+      }
+    } else if (this.blackoutPhase === 'BLACKOUT') {
+      // PHASE 3: TACTICAL EMERGENCY BLACKOUT (အချိန်အကန့်အသတ် မဲမှောင်ချိန် - 5.5s exciting tension)
+      this.blackoutPhaseTimer += dt;
+      this.ambientFlickerFactor = 0.16;
+      targetAmbientIntensity = 0.14;
+      targetAmbientColor = this.currentZoneIndex === 2 ? 0x221005 : 0x160408;
+      targetKeyIntensity = 0.10;
+      targetKeyColor = 0xff1133;
+      targetRimIntensity = 0.12;
+
+      // Strictly time-limited 5.5-second blackout before automatic restoration
+      if (this.blackoutPhaseTimer >= 5.5) {
+        this.blackoutPhase = 'SURGE_RESTORATION';
+        this.blackoutPhaseTimer = 0;
+        this.isBlackoutActive = false;
+        sound.playPowerSurgeRestored();
+      }
+    } else if (this.blackoutPhase === 'SURGE_RESTORATION') {
+      // PHASE 4: HIGH-VOLTAGE POWER SURGE (မီးပြန်လင်းချိန် - Blinding restoration flash)
+      this.blackoutPhaseTimer += dt;
+      const surgeRatio = Math.max(0, 1 - this.blackoutPhaseTimer / 0.85);
+      targetAmbientIntensity = 0.95 + surgeRatio * 0.55; // Surge flare up to 1.50
+      targetAmbientColor = 0x44ffff;
+      targetKeyIntensity = 1.15 + surgeRatio * 0.65; // Key flare up to 1.80
+      targetKeyColor = 0xffffff;
+      targetRimIntensity = 0.60;
+      this.ambientFlickerFactor = 1.0;
+
+      if (this.blackoutPhaseTimer >= 0.85) {
+        this.blackoutPhase = 'NORMAL';
+        this.blackoutCycleTimer = 0;
+      }
+    }
+
+    // Dynamic Fog Modulation between bright clear sky and tactical darkness
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      if (this.isBlackoutActive) {
+        this.scene.fog.density = 0.00042;
+        this.scene.fog.color.setHex(0x0e0308);
+      } else {
+        this.scene.fog.density = 0.00022;
+        this.scene.fog.color.setHex(
+          this.currentZoneIndex === 2 ? 0x1f1408 : this.currentZoneIndex === 3 ? 0x140a22 : 0x0a1b33
+        );
+      }
+    }
+
+    // Zone 3 Toxic Bio-Storm Lightning Flashes
+    if (this.currentZoneIndex === 3) {
+      this.thunderTimer += dt;
+      if (this.thunderTimer >= 8.0 + (Math.sin(this.animTick * 0.2) + 1) * 2.0) {
         this.thunderTimer = 0;
         this.lightningFlashAlpha = 1.0;
         sound.playThunderClap();
       }
-
       if (this.lightningFlashAlpha > 0) {
         this.lightningFlashAlpha = Math.max(0, this.lightningFlashAlpha - dt * 3.5);
-        // Blinding white lightning bolt flash!
-        targetAmbientIntensity = 0.50 + this.lightningFlashAlpha * 1.4;
-        targetAmbientColor = 0xffffff;
-        targetKeyIntensity = 0.82 + this.lightningFlashAlpha * 2.5;
-        targetKeyColor = 0xd0f0ff;
-        this.ambientFlickerFactor = 1.0;
-      } else {
-        targetAmbientIntensity = 0.52;
-        targetKeyIntensity = 0.82;
-        targetRimIntensity = 0.45;
-        this.ambientFlickerFactor = 0.92 + Math.sin(this.animTick * 8) * 0.08;
+        targetAmbientIntensity += this.lightningFlashAlpha * 1.5;
+        targetKeyIntensity += this.lightningFlashAlpha * 2.2;
+        targetKeyColor = 0xffffff;
       }
-      this.isBlackoutActive = false;
     }
 
     // Smoothly apply lighting state
@@ -9546,5 +9540,32 @@ export class ThreeSceneManager {
     this.overlayCanvas.style.top = '0';
     this.overlayCanvas.style.left = '0';
     this.overlayCanvas.style.pointerEvents = 'none';
+  }
+
+  /**
+   * Retrieves real-time power grid status for tactical telemetry & HUD display
+   */
+  public getPowerGridStatus(): {
+    phase: 'NORMAL' | 'FLICKER_DROP' | 'BLACKOUT' | 'SURGE_RESTORATION';
+    isBlackout: boolean;
+    timeRemaining: number;
+    currentZone: number;
+  } {
+    let timeRemaining = 0;
+    if (this.blackoutPhase === 'NORMAL') {
+      timeRemaining = Math.max(0, 18.0 - this.blackoutCycleTimer);
+    } else if (this.blackoutPhase === 'FLICKER_DROP') {
+      timeRemaining = Math.max(0, 1.8 - this.blackoutPhaseTimer);
+    } else if (this.blackoutPhase === 'BLACKOUT') {
+      timeRemaining = Math.max(0, 5.5 - this.blackoutPhaseTimer);
+    } else if (this.blackoutPhase === 'SURGE_RESTORATION') {
+      timeRemaining = Math.max(0, 0.85 - this.blackoutPhaseTimer);
+    }
+    return {
+      phase: this.blackoutPhase,
+      isBlackout: this.isBlackoutActive,
+      timeRemaining: Math.ceil(timeRemaining),
+      currentZone: this.currentZoneIndex,
+    };
   }
 }

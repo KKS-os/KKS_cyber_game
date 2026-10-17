@@ -133,6 +133,26 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2200);
   };
 
+  const handleQuickMatch = async () => {
+    try {
+      setIsConnecting(true);
+      setErrorBanner(null);
+      sound.playPowerup();
+      // Look for first available waiting lobby or host immediately
+      const availableRoom = liveRooms.find(
+        (r) => r.status === 'WAITING' && r.playerCount < (r.maxPlayers || 4)
+      );
+      if (availableRoom) {
+        await multiplayer.joinRoom(availableRoom.id, playerName);
+      } else {
+        await multiplayer.hostRoom(playerName);
+      }
+    } catch (err: any) {
+      setIsConnecting(false);
+      setErrorBanner(err.message || 'Quick Match connection failed.');
+    }
+  };
+
   const handleLeaveRoom = () => {
     multiplayer.leaveRoom();
     setRoomInfo(null);
@@ -338,6 +358,20 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
         ) : (
           /* Disconnected State (Tabs: LIVE SQUADS / HOST / JOIN) */
           <div>
+            {/* 1-Tap Ultra-Fast Quick Match Button */}
+            <button
+              onClick={handleQuickMatch}
+              disabled={isConnecting}
+              className="w-full mb-3 py-3 bg-gradient-to-r from-[#00FFD1] via-[#39ff14] to-[#00FFD1] hover:brightness-110 text-black font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(0,255,209,0.5)] hover:shadow-[0_0_30px_rgba(57,255,20,0.8)] flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <Zap size={18} className="text-black fill-black animate-bounce" />
+              <span>
+                {isMy
+                  ? '⚡ ချက်ချင်းကစားမည် (INSTANT QUICK MATCH)'
+                  : '⚡ INSTANT QUICK MATCH (HIGH-SPEED SYNC)'}
+              </span>
+            </button>
+
             {/* Tabs */}
             <div className="grid grid-cols-3 gap-1.5 mb-3 border-b border-white/10 pb-2.5">
               <button

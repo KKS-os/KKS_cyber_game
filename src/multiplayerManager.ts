@@ -365,10 +365,17 @@ export class MultiplayerManager {
     if (!this.connected || !this.roomId) return;
 
     const now = Date.now();
-    const hasImmediateAction = isSlashing || isBlasting || isDashing;
+    // Immediate zero-delay dispatch on any combat attack, dash, or directional velocity change
+    const hasImmediateAction =
+      isSlashing ||
+      isBlasting ||
+      isDashing ||
+      Math.abs(velocity.x) > 0.05 ||
+      Math.abs(velocity.y) > 0.05;
 
-    // 1. Throttled P2P WebRTC broadcast (~50ms / 20Hz, or immediate upon action)
-    if (hasImmediateAction || now - this.lastP2PSyncTime >= 50) {
+    // 1. High-Speed P2P WebRTC Broadcast (~33ms / 30Hz or immediate upon combat action)
+    // Delivers lightning-fast 60FPS fluid teammate movement and instant attack synchronization
+    if (hasImmediateAction || now - this.lastP2PSyncTime >= 33) {
       this.lastP2PSyncTime = now;
       this.broadcastPacket('PLAYER_STATE', {
         x: Math.round(position.x),
@@ -387,9 +394,9 @@ export class MultiplayerManager {
       });
     }
 
-    // 2. Reliable Cloud Firestore synchronization (Throttled between 100-200ms: ~150ms)
-    // Minimizes mobile network strain, avoids frame drops and Firestore quota limits
-    if (now - this.lastFirestoreSyncTime >= 150) {
+    // 2. High-Performance Cloud Firestore synchronization (~110ms)
+    // Low latency cloud backup without exhausting mobile network bandwidth
+    if (now - this.lastFirestoreSyncTime >= 110) {
       this.lastFirestoreSyncTime = now;
       const playerRef = doc(db, 'multiplayer_rooms', this.roomId, 'players', this.localPlayerId);
       setDoc(
@@ -761,25 +768,25 @@ export class MultiplayerManager {
       const predictedX = remote.targetX + remote.vx * (clampedElapsed * 60);
       const predictedY = remote.targetY + remote.vy * (clampedElapsed * 60);
 
-      // 2. Client-Side Interpolation
+      // 2. Client-Side Instantaneous Response Interpolation
       const dist = Math.hypot(predictedX - remote.x, predictedY - remote.y);
       if (dist > 350) {
         // Teleport threshold: snap instantly for large distance gaps (e.g. stage respawn)
         remote.x = predictedX;
         remote.y = predictedY;
       } else {
-        // High-framerate exponential lerp smoothing (buttery smooth 60+ FPS)
-        const lerpFactor = Math.min(1, Math.max(0.12, dt * 14));
+        // Ultra-responsive high-speed exponential lerp smoothing (lightning quick tracking)
+        const lerpFactor = Math.min(1, Math.max(0.20, dt * 22));
         remote.x += (predictedX - remote.x) * lerpFactor;
         remote.y += (predictedY - remote.y) * lerpFactor;
       }
 
-      // 3. Shortest-path angular interpolation
+      // 3. Shortest-path snappy angular interpolation
       if (remote.targetAngle !== undefined) {
         let diff = remote.targetAngle - remote.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        remote.angle += diff * Math.min(1, Math.max(0.15, dt * 16));
+        remote.angle += diff * Math.min(1, Math.max(0.22, dt * 24));
       }
     }
   }

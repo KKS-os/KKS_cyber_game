@@ -96,6 +96,17 @@ export default function App() {
   const [chronoTimer, setChronoTimer] = useState<number>(0);
   const [rhythmBeatState, setRhythmBeatState] = useState<RhythmBeatState | null>(null);
   const [speedrunDelta, setSpeedrunDelta] = useState<SpeedrunDeltaInfo | null>(null);
+  const [powerGridStatus, setPowerGridStatus] = useState<{
+    phase: 'NORMAL' | 'FLICKER_DROP' | 'BLACKOUT' | 'SURGE_RESTORATION';
+    isBlackout: boolean;
+    timeRemaining: number;
+    currentZone: number;
+  }>({
+    phase: 'NORMAL',
+    isBlackout: false,
+    timeRemaining: 18,
+    currentZone: 0,
+  });
 
   // Stage Objective & Progression State
   const [objectiveState, setObjectiveState] = useState<StageObjectiveState | null>(null);
@@ -333,6 +344,9 @@ export default function App() {
       if (cTimer !== undefined) setComboTimer(cTimer);
       if (maxCTimer !== undefined) setMaxComboTimer(maxCTimer);
       if (lastHitTime !== undefined) setLastCombatHitTime(lastHitTime);
+      if (engine.threeManager) {
+        setPowerGridStatus(engine.threeManager.getPowerGridStatus());
+      }
     };
 
     engine.onStageClear = (summary) => {
@@ -896,6 +910,7 @@ export default function App() {
             onOpenMultiplayer={() => setShowMultiplayerModal(true)}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            powerGridStatus={powerGridStatus}
           />
         )}
 
